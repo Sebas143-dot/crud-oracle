@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common'; // ✅ AÑADIR ESTO
+import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
@@ -30,5 +30,11 @@ export class DashboardComponent implements OnInit {
   logout(): void {
     this.authService.cerrarSesion();
     this.router.navigate(['/login']);
+  }
+
+  editarTabla(tabla: any): void {
+    console.log('Modificando tabla:', tabla.table_name);
+    // Aquí podrías redirigir a una ruta específica si lo deseas
+    // this.router.navigate(['/editar', tabla.table_name]);
   }
 }

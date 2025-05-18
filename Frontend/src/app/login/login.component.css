@@ -8,16 +8,17 @@
 
 body {
     background: linear-gradient(135deg, #667eea, #764ba2);
-    height: 100vh;
+    min-height: 100vh; /* Cambiado a min-height para mejor compatibilidad */
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 15px; /* Añadido padding para evitar que toque los bordes en pantallas pequeñas */
 }
 
 .container {
     width: 100%;
     max-width: 420px;
-    padding: 20px;
+    margin: 0 auto; /* Centrado horizontal explícito */
 }
 
 .form-container {
@@ -26,6 +27,7 @@ body {
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
     padding: 40px;
     transition: transform 0.3s ease;
+    width: 100%; /* Asegura que ocupe todo el ancho del contenedor */
 }
 
 .form-container:hover {
@@ -244,4 +246,4 @@ body {
 
 .form-container {
     animation: fadeIn 0.5s ease-out;
-}
+}   

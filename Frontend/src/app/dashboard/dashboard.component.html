@@ -1,33 +1,30 @@
-<h2>Tablas disponibles</h2>
+<div class="container">
+    <div class="dashboard-container">
+        <h2 class="dashboard-title">Tablas disponibles</h2>
 
-<div *ngIf="error" class="error">{{ error }}</div>
+        <div *ngIf="error" class="error">{{ error }}</div>
 
-<table *ngIf="tablas.length > 0; else sinTablas">
-  <thead>
-    <tr>
-      <th>Owner</th>
-      <th>Tabla</th>
-      <th>Privilegios</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr *ngFor="let t of tablas">
-      <td>{{ t.owner }}</td>
-      <td>{{ t.table_name }}</td>
-      <td>
-        <span *ngIf="t.privileges.select">SELECT </span>
-        <span *ngIf="t.privileges.insert">INSERT </span>
-        <span *ngIf="t.privileges.update">UPDATE </span>
-        <span *ngIf="t.privileges.delete">DELETE </span>
-      </td>
-    </tr>
-  </tbody>
-</table>
+        <div *ngIf="tablas.length > 0; else sinTablas" class="cards-container">
+            <div class="tabla-card" *ngFor="let t of tablas">
+                <h3>{{ t.table_name }}</h3>
+                <p><strong>Owner:</strong> {{ t.owner }}</p>
+                <div class="privilegios">
+                    <span *ngIf="t.privileges.select" class="badge select">SELECT</span>
+                    <span *ngIf="t.privileges.insert" class="badge insert">INSERT</span>
+                    <span *ngIf="t.privileges.update" class="badge update">UPDATE</span>
+                    <span *ngIf="t.privileges.delete" class="badge delete">DELETE</span>
+                </div>
+                <div class="actions">
+                    <button class="edit-btn" (click)="editarTabla(tablas)">Modificar</button>
+                </div>
 
-<ng-template #sinTablas>
-  <p>No se encontraron tablas para este usuario.</p>
-</ng-template>
+            </div>
+        </div>
 
-<hr />
+        <ng-template #sinTablas>
+            <p class="no-data">No se encontraron tablas para este usuario.</p>
+        </ng-template>
 
-<button (click)="logout()" class="logout-btn">Cerrar sesión</button>
+        <button (click)="logout()" class="logout-btn">Cerrar sesión</button>
+    </div>
+</div>
