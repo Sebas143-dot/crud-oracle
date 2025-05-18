@@ -1,4 +1,33 @@
-<h2>Bienvenido al Dashboard</h2>
-<p>Esta página solo es accesible si iniciaste sesión.</p>
+<h2>Tablas disponibles</h2>
+
+<div *ngIf="error" class="error">{{ error }}</div>
+
+<table *ngIf="tablas.length > 0; else sinTablas">
+  <thead>
+    <tr>
+      <th>Owner</th>
+      <th>Tabla</th>
+      <th>Privilegios</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let t of tablas">
+      <td>{{ t.owner }}</td>
+      <td>{{ t.table_name }}</td>
+      <td>
+        <span *ngIf="t.privileges.select">SELECT </span>
+        <span *ngIf="t.privileges.insert">INSERT </span>
+        <span *ngIf="t.privileges.update">UPDATE </span>
+        <span *ngIf="t.privileges.delete">DELETE </span>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<ng-template #sinTablas>
+  <p>No se encontraron tablas para este usuario.</p>
+</ng-template>
+
+<hr />
 
 <button (click)="logout()" class="logout-btn">Cerrar sesión</button>

@@ -6,7 +6,7 @@ import { Observable } from 'rxjs';
 export class AuthService {
   private apiUrl = 'http://localhost:3000/api';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   login(user: string, password: string): Observable<{ token: string }> {
     return this.http.post<{ token: string }>(`${this.apiUrl}/login`, { user, password });
@@ -26,5 +26,14 @@ export class AuthService {
 
   estaAutenticado(): boolean {
     return !!this.obtenerToken();
+  }
+
+  getTablas(): Observable<any> {
+    const token = this.obtenerToken();
+    return this.http.get(`${this.apiUrl}/tablas`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
   }
 }
