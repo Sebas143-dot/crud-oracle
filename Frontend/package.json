@@ -1,5 +1,5 @@
 {
-  "name": "crud-oracle",
+  "name": "crud",
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",

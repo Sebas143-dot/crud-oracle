@@ -1,0 +1,247 @@
+/* Estilos generales */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.container {
+    width: 100%;
+    max-width: 420px;
+    padding: 20px;
+}
+
+.form-container {
+    background-color: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    padding: 40px;
+    transition: transform 0.3s ease;
+}
+
+.form-container:hover {
+    transform: translateY(-5px);
+}
+
+/* Encabezado del formulario */
+.form-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.form-header h1 {
+    color: #333;
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.form-header p {
+    color: #666;
+    font-size: 16px;
+}
+
+/* Campos de entrada */
+.input-group {
+    margin-bottom: 20px;
+}
+
+.input-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.input-field:focus-within {
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.input-field i {
+    padding: 0 15px;
+    color: #999;
+}
+
+.input-field input {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    outline: none;
+    font-size: 16px;
+}
+
+.toggle-password {
+    cursor: pointer;
+}
+
+.error-message {
+    color: #e74c3c;
+    font-size: 14px;
+    margin-top: 5px;
+    height: 20px;
+}
+
+/* Opciones adicionales */
+.options-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.remember-me {
+    display: flex;
+    align-items: center;
+}
+
+.remember-me input {
+    margin-right: 8px;
+}
+
+.forgot-password {
+    color: #667eea;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.3s;
+}
+
+.forgot-password:hover {
+    color: #764ba2;
+    text-decoration: underline;
+}
+
+/* Botón de inicio de sesión */
+.login-btn {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(to right, #667eea, #764ba2);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.login-btn:hover {
+    background: linear-gradient(to right, #5a6fd6, #6a429a);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.login-btn:active {
+    transform: translateY(0);
+}
+
+/* Divisor */
+.divider {
+    display: flex;
+    align-items: center;
+    margin: 25px 0;
+    color: #999;
+}
+
+.divider::before,
+.divider::after {
+    content: "";
+    flex: 1;
+    border-bottom: 1px solid #ddd;
+}
+
+.divider span {
+    padding: 0 15px;
+    font-size: 14px;
+}
+
+/* Inicio de sesión social */
+.social-login {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.social-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.social-btn:hover {
+    background-color: #f8f9fa;
+    transform: translateY(-2px);
+}
+
+.google {
+    color: #ea4335;
+}
+
+.facebook {
+    color: #1877f2;
+}
+
+/* Enlace de registro */
+.signup-link {
+    text-align: center;
+    font-size: 14px;
+    color: #666;
+}
+
+.signup-link a {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s;
+}
+
+.signup-link a:hover {
+    color: #764ba2;
+    text-decoration: underline;
+}
+
+/* Diseño responsivo */
+@media (max-width: 480px) {
+    .container {
+        padding: 10px;
+    }
+    
+    .form-container {
+        padding: 30px 20px;
+    }
+    
+    .social-login {
+        flex-direction: column;
+    }
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.form-container {
+    animation: fadeIn 0.5s ease-out;
+}

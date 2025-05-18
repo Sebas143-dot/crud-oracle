@@ -1,0 +1,54 @@
+<div class="container">
+  <div class="form-container">
+    <div class="form-header">
+      <h1>Iniciar Sesión</h1>
+      <p>Bienvenido de nuevo</p>
+    </div>
+
+    <form id="loginForm">
+      <div class="input-group">
+        <div class="input-field">
+          <i class="fas fa-envelope"></i>
+          <input type="email" id="email" placeholder="Correo electrónico" required />
+        </div>
+        <div class="error-message" id="emailError"></div>
+      </div>
+
+      <div class="input-group">
+        <div class="input-field">
+          <i class="fas fa-lock"></i>
+          <input type="password" id="password" placeholder="Contraseña" required />
+          <i class="fas fa-eye toggle-password" id="togglePassword"></i>
+        </div>
+        <div class="error-message" id="passwordError"></div>
+      </div>
+
+      <div class="options-row">
+        <div class="remember-me">
+          <input type="checkbox" id="rememberMe" />
+          <label for="rememberMe">Recordarme</label>
+        </div>
+        <a href="#" class="forgot-password">¿Olvidaste tu contraseña?</a>
+      </div>
+
+      <button type="submit" class="login-btn">Iniciar Sesión</button>
+
+      <div class="divider">
+        <span>o continúa con</span>
+      </div>
+
+      <div class="social-login">
+        <button type="button" class="social-btn google">
+          <i class="fab fa-google"></i> Google
+        </button>
+        <button type="button" class="social-btn facebook">
+          <i class="fab fa-facebook-f"></i> Facebook
+        </button>
+      </div>
+
+      <div class="signup-link">
+        ¿No tienes una cuenta? <a href="#">Regístrate</a>
+      </div>
+    </form>
+  </div>
+</div>
