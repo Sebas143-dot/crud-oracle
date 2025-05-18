@@ -26,7 +26,6 @@ api.post('/login', async (req, res) => {
         console.log(`El usuario ${user} se conectó a la BDD Exitosamente`);
         const token = jwt.sign({ user, password }, SECRET, { expiresIn: '1h' });
         res.json({
-            message: 'Conexión exitosa a Oracle',
             token
         });
     } catch (err) {
@@ -54,16 +53,44 @@ api.get('/tablas', verificar, async (req, res) => {
         });
 
         const result = await connection.execute(
-            `SELECT owner, table_name FROM all_tables where tablespace_name = 'USERS'`
+            `SELECT 
+                t.owner,
+                t.table_name,
+                LISTAGG(p.privilege, ', ') 
+                WITHIN GROUP (ORDER BY p.privilege) AS privileges
+            FROM all_tables t
+            JOIN all_tab_privs p 
+            ON t.table_name = p.table_name
+            WHERE p.grantee = USER
+            GROUP BY t.owner, t.table_name
+            ORDER BY t.owner, t.table_name`
         );
 
         await connection.close();
 
         // Si la conexión es exitosa, se genera un token
         console.log(`El usuario ${req.user} solicitó las tablas de la BDD Exitosamente`);
+
+        const tablas = [];
+
+        for (let i = 0; i < result.rows.length; i++) {
+            let row = result.rows[i];
+            tablas.push({
+                owner: row[0],
+                table_name: row[1],
+                privileges: {
+                    select: row[2].includes('SELECT'),
+                    insert: row[2].includes('INSERT'),
+                    update: row[2].includes('UPDATE'),
+                    delete: row[2].includes('DELETE')
+                }
+            })
+        }
+
+        console.log(tablas);
+
         res.json({
-            message: 'Conexión exitosa a Oracle',
-            result: result.rows
+            result: tablas
         });
     } catch (err) {
         // Manejo simple por código de error
