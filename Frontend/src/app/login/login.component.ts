@@ -1,11 +1,20 @@
 import { Component, OnInit, AfterViewInit } from '@angular/core';
+import { AuthService } from '../services/auth.service';
+import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-login',
+  imports: [FormsModule],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit, AfterViewInit {
+  user = '';
+  password = '';
+  errorMessage = '';
+
+  constructor(private authService: AuthService, private router: Router) { }
 
   ngOnInit(): void {
     this.checkSavedCredentials();
@@ -13,7 +22,7 @@ export class LoginComponent {
 
   ngAfterViewInit(): void {
     const loginForm = document.getElementById('loginForm') as HTMLFormElement;
-    const emailInput = document.getElementById('email') as HTMLInputElement;
+    const userInput = document.getElementById('email') as HTMLInputElement;
     const passwordInput = document.getElementById('password') as HTMLInputElement;
     const emailError = document.getElementById('emailError') as HTMLElement;
     const passwordError = document.getElementById('passwordError') as HTMLElement;
@@ -37,30 +46,35 @@ export class LoginComponent {
 
       let isValid = true;
 
-      if (!this.validateEmail(emailInput.value)) {
-        emailError.textContent = 'Por favor, introduce un correo electrónico válido';
-        this.animateError(emailInput);
+      if (!userInput.value.trim()) {
+        emailError.textContent = 'Por favor, introduce tu usuario de Oracle';
+        this.animateError(userInput);
         isValid = false;
       } else {
         emailError.textContent = '';
       }
 
-      if (passwordInput.value.length < 6) {
-        passwordError.textContent = 'La contraseña debe tener al menos 6 caracteres';
+      if (!passwordInput.value.trim()) {
+        passwordError.textContent = 'Por favor, introduce la contraseña';
         this.animateError(passwordInput);
         isValid = false;
-      } else {
+      }
+      else {
         passwordError.textContent = '';
       }
 
       if (isValid) {
+        this.user = userInput.value;
+        this.password = passwordInput.value;
+
         if (rememberMeCheckbox.checked) {
-          this.saveCredentials(emailInput.value, passwordInput.value);
+          this.saveCredentials(this.user, this.password);
         } else {
           localStorage.removeItem('savedEmail');
           localStorage.removeItem('savedPassword');
         }
-        this.simulateLogin();
+
+        this.realLogin();
       }
     });
 
@@ -117,8 +131,8 @@ export class LoginComponent {
     }, { once: true });
   }
 
-  saveCredentials(email: string, password: string): void {
-    localStorage.setItem('savedEmail', email);
+  saveCredentials(user: string, password: string): void {
+    localStorage.setItem('savedEmail', user);
     localStorage.setItem('savedPassword', password);
     localStorage.setItem('rememberMe', 'true');
   }
@@ -139,17 +153,26 @@ export class LoginComponent {
     }
   }
 
-  simulateLogin(): void {
+  realLogin(): void {
     const loginBtn = document.querySelector('.login-btn') as HTMLButtonElement;
     const originalText = loginBtn.textContent;
 
     loginBtn.textContent = 'Iniciando sesión...';
     loginBtn.disabled = true;
 
-    setTimeout(() => {
-      alert('¡Inicio de sesión exitoso!');
-      loginBtn.textContent = originalText!;
-      loginBtn.disabled = false;
-    }, 1500);
+    this.authService.login(this.user, this.password).subscribe({
+      next: (res) => {
+        this.authService.guardarToken(res.token);
+        loginBtn.textContent = originalText!;
+        loginBtn.disabled = false;
+        this.router.navigate(['/dashboard']);
+      },
+      error: (err) => {
+        this.errorMessage = err.error?.error || 'Error al iniciar sesión';
+        loginBtn.textContent = originalText!;
+        loginBtn.disabled = false;
+        alert(this.errorMessage);
+      }
+    });
   }
 }
