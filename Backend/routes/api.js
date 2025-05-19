@@ -126,15 +126,17 @@ api.get('/tabla', verificar, async (req, res) => {
 
         await connection.close();
 
-        // Si la conexión es exitosa, se genera un token
-        console.log(`El usuario ${req.user} solicitó la tabla '${owner}.${table_name}' de la BDD Exitosamente`);
+        // metaData ya trae el nombre y el tipo de dato
+        const columns = result.metaData.map(col => ({
+            name: col.name,
+            type: col.dbTypeName // o col.dbType para el código numérico
+        }));
 
         res.json({
-            columns: result.metaData.map(col => col.name),
+            columns, // ahora es un array de objetos { name, type }
             data: result.rows
         });
     } catch (err) {
-        // Manejo simple por código de error
         console.error('Error al solicitar tablas a Oracle:\n', err);
         res.status(500).json({
             error: 'Error al solicitar tablas a Oracle',
@@ -144,7 +146,21 @@ api.get('/tabla', verificar, async (req, res) => {
 });
 
 api.post('/tabla', verificar, async (req, res) => {
-    const { owner, table_name, columns, data } = req.body;
+    let { owner, table_name, columns, data } = req.body;
+
+    // Asegura que columns sea array
+    if (!Array.isArray(columns)) {
+        if (typeof columns === 'string') {
+            columns = columns.split(',').map(col => col.trim());
+        } else {
+            return res.status(400).json({ error: 'columns debe ser un array o string separado por comas' });
+        }
+    }
+
+    // Asegura que data sea array de arrays
+    if (!Array.isArray(data[0])) {
+        data = [data];
+    }
 
     if (!owner || !table_name || !data || !columns) {
         return res.status(400).json({
@@ -159,13 +175,8 @@ api.post('/tabla', verificar, async (req, res) => {
             connectString: process.env.ORACLE_CONNECT_STRING
         });
 
-        let sql = ``;
-
-        if (data.length === 1) {
-            sql = `INSERT INTO ${owner}.${table_name} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`;
-        } else {
-            sql = `INSERT INTO ${owner}.${table_name} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`;
-        }
+        // Cambia los placeholders a :1, :2, :3, ...
+        const sql = `INSERT INTO ${owner}.${table_name} (${columns.join(', ')}) VALUES (${columns.map((_, i) => `:${i + 1}`).join(', ')})`;
 
         await connection.executeMany(sql, data);
 
@@ -178,7 +189,6 @@ api.post('/tabla', verificar, async (req, res) => {
             message: 'Datos insertados correctamente'
         });
     } catch (err) {
-        // Manejo simple por código de error
         console.error('Error al insertar datos en Oracle:\n', err);
         res.status(500).json({
             error: 'Error al insertar datos en Oracle',
@@ -188,13 +198,30 @@ api.post('/tabla', verificar, async (req, res) => {
 });
 
 api.put('/tabla', verificar, async (req, res) => {
-    const { owner, table_name, columns, data } = req.body;
+    let { owner, table_name, columns, data, key_column, key_data } = req.body;
 
-    if (!owner || !table_name || !data || !columns) {
+    console.log(req.body);
+
+    if (!owner || !table_name || !data || !columns || !key_column) {
         return res.status(400).json({
-            error: 'Faltan parámetros owner, table_name, columns o data'
+            error: 'Faltan parámetros owner, table_name, columns, data o key_column'
         });
     }
+
+    console.log(data);
+
+    // Si data es un solo array (una fila), conviértelo en array de arrays
+    if (!Array.isArray(data[0])) {
+        data.push(key_data);
+        data = [data];
+    }
+
+    console.log(data);
+
+    // El SQL debe tener un placeholder para cada columna y uno para la clave
+    const setClause = columns.map((col, i) => `${col} = :${i + 1}`).join(', ');
+    const whereClause = `${key_column} = :${columns.length + 1}`;
+    const sql = `UPDATE ${owner}.${table_name} SET ${setClause} WHERE ${whereClause}`;
 
     try {
         const connection = await oracledb.getConnection({
@@ -203,26 +230,15 @@ api.put('/tabla', verificar, async (req, res) => {
             connectString: process.env.ORACLE_CONNECT_STRING
         });
 
-        let sql = ``;
-
-        if (data.length === 1) {
-            sql = `UPDATE ${owner}.${table_name} SET ${columns.map(col => `${col} = ?`).join(', ')} WHERE ${columns[0]} = ?`;
-        } else {
-            sql = `UPDATE ${owner}.${table_name} SET ${columns.map(col => `${col} = ?`).join(', ')} WHERE ${columns[0]} = ?`;
-        }
-
         await connection.executeMany(sql, data);
 
         await connection.commit();
         await connection.close();
 
-        console.log(`El usuario ${req.user} actualizó datos en la tabla '${owner}.${table_name}' de la BDD Exitosamente`);
-
         res.json({
             message: 'Datos actualizados correctamente'
         });
     } catch (err) {
-        // Manejo simple por código de error
         console.error('Error al actualizar datos en Oracle:\n', err);
         res.status(500).json({
             error: 'Error al actualizar datos en Oracle',
