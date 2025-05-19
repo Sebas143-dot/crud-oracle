@@ -36,16 +36,13 @@ export class AuthService {
       }
     });
   }
-  obtenerDatosTabla(tabla: string): Observable<{ columns: string[], rows: any[][] }> {
+  obtenerDatosTabla(owner: string, tableName: string): Observable<any> {
     const token = this.obtenerToken();
-    return this.http.post<{ columns: string[], rows: any[][] }>(
-      `${this.apiUrl}/datos-tabla`,
-      { tabla },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+    return this.http.get(`${this.apiUrl}/tabla?owner=${owner}&table_name=${tableName}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
       }
-    );
+    });
   }
+
 }

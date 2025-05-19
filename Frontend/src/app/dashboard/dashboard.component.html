@@ -35,27 +35,23 @@
   <div class="modal">
     <h2>Modificar tabla: {{ tablaSeleccionada?.table_name }}</h2>
 
+    <!-- Botones según permisos -->
     <div class="modal-actions">
-      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.select" (click)="accion('select')">
-        SELECT
-      </button>
-      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.insert" (click)="accion('insert')">
-        INSERT
-      </button>
-      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.update" (click)="accion('update')">
-        UPDATE
-      </button>
-      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.delete" (click)="accion('delete')">
-        DELETE
-      </button>
+      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.select" (click)="accion('select')">SELECT</button>
+      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.insert" (click)="accion('insert')">INSERT</button>
+      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.update" (click)="accion('update')">UPDATE</button>
+      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.delete" (click)="accion('delete')">DELETE</button>
     </div>
 
-    <!-- Tabla de datos si tiene SELECT -->
+    <!-- Tabla: columnas con nombre y tipo + filas -->
     <div *ngIf="columnas.length > 0 && filas.length > 0" class="tabla-wrapper" style="overflow-x:auto; margin-top: 20px;">
       <table>
         <thead>
           <tr>
-            <th *ngFor="let col of columnas">{{ col }}</th>
+            <th *ngFor="let col of columnas">
+              {{ col }}
+              <div class="tipo-dato">{{ obtenerTipoDato(col) }}</div>
+            </th>
           </tr>
         </thead>
         <tbody>

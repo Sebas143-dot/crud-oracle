@@ -20,7 +20,9 @@ export class DashboardComponent implements OnInit {
   columnas: string[] = [];
   filas: any[][] = [];
 
-  constructor(private authService: AuthService, private router: Router) {}
+  atributos: { name: string; type: string }[] = []; // 👈 Nuevo arreglo para tipos
+
+  constructor(private authService: AuthService, private router: Router) { }
 
   ngOnInit(): void {
     this.authService.getTablas().subscribe({
@@ -44,12 +46,28 @@ export class DashboardComponent implements OnInit {
 
     this.columnas = [];
     this.filas = [];
+    this.atributos = [];
 
     if (tabla.privileges.select) {
-      this.authService.obtenerDatosTabla(tabla.table_name).subscribe({
+      this.authService.obtenerDatosTabla(tabla.owner, tabla.table_name).subscribe({
         next: (res) => {
-          this.columnas = res.columns;
-          this.filas = res.rows;
+          // Soporta respuesta con objetos de columna con tipo
+          if (res.columns.length && typeof res.columns[0] === 'object') {
+            this.atributos = res.columns.map((col: any) => ({
+              name: col.name,
+              type: col.type || 'Desconocido'
+            }));
+            this.columnas = this.atributos.map(attr => attr.name);
+          } else {
+            // Soporte para respuesta simple con solo nombres
+            this.columnas = res.columns;
+            this.atributos = res.columns.map((name: string) => ({
+              name,
+              type: 'Desconocido'
+            }));
+          }
+
+          this.filas = res.data;
         },
         error: (err) => {
           console.error('Error al obtener datos de la tabla:', err);
@@ -64,10 +82,16 @@ export class DashboardComponent implements OnInit {
     this.tablaSeleccionada = null;
     this.columnas = [];
     this.filas = [];
+    this.atributos = [];
   }
 
   accion(tipo: string): void {
     console.log(`Acción '${tipo}' en tabla '${this.tablaSeleccionada.table_name}'`);
-    // Aquí luego podrías mostrar otro modal o vista por tipo de acción
+    // Aquí podrías abrir un modal de edición, inserción o eliminación
+  }
+
+  obtenerTipoDato(nombreColumna: string): string {
+    const atributo = this.atributos.find(attr => attr.name === nombreColumna);
+    return atributo ? atributo.type : 'Desconocido';
   }
 }
