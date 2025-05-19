@@ -1,97 +1,173 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-import { AuthService } from '../services/auth.service';
+import { CommonModule }  from '@angular/common';
+import { FormsModule }   from '@angular/forms';
+import { Router }        from '@angular/router';
 
+import {
+  AuthService,
+  TablasResponse,
+  DatosTablaResponse,
+  TiposTablaResponse
+} from '../services/auth.service';
+
+/* ----------------------------------------------------------- */
+/*  Stand-alone component                                     */
+/* ----------------------------------------------------------- */
 @Component({
-  selector: 'app-dashboard',
-  standalone: true,
-  imports: [CommonModule],
-  templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.css']
+  selector    : 'app-dashboard',
+  standalone  : true,
+  imports     : [CommonModule, FormsModule],
+  templateUrl : './dashboard.component.html',
+  styleUrls   : ['./dashboard.component.css']
 })
 export class DashboardComponent implements OnInit {
-  tablas: any[] = [];
-  error: string = '';
 
-  mostrarModal: boolean = false;
+  /* ---------- estado general ---------- */
+  tablas: any[] = [];
+  error = '';
+
+  /* ---------- estado modales ---------- */
+  mostrarModal  = false;   // modal principal (datos, acciones)
+  mostrarInsert = false;   // modal de inserción
+
+  /* ---------- tabla seleccionada ---------- */
   tablaSeleccionada: any = null;
 
-  columnas: string[] = [];
-  filas: any[][] = [];
+  columnas : string[] = [];
+  filas    : any[][]  = [];
+  atributos: { name: string; type: string }[] = [];
 
-  atributos: { name: string; type: string }[] = []; // 👈 Nuevo arreglo para tipos
+  /* fila que el usuario edita para insertar */
+  nuevaFila: string[] = [];
 
-  constructor(private authService: AuthService, private router: Router) { }
+  /* ---------- ctor ---------- */
+  constructor(private auth: AuthService,
+              private router: Router) {}
 
+  /* ========================================================= */
+  /*  Ciclo de vida                                            */
+  /* ========================================================= */
   ngOnInit(): void {
-    this.authService.getTablas().subscribe({
-      next: (res) => {
-        this.tablas = res.result;
-      },
-      error: (err) => {
-        this.error = 'Error al obtener tablas: ' + (err.error?.error || err.message);
-      }
+    this.auth.getTablas().subscribe({
+      next : (r: TablasResponse) => this.tablas = r.result,
+      error: e => this.error = 'Error al obtener tablas: ' +
+                               (e.error?.error || e.message)
     });
   }
 
+  /* ========================================================= */
+  /*  Logout                                                   */
+  /* ========================================================= */
   logout(): void {
-    this.authService.cerrarSesion();
+    this.auth.cerrarSesion();
     this.router.navigate(['/login']);
   }
 
+  /* ========================================================= */
+  /*  Abrir modal principal                                    */
+  /* ========================================================= */
   editarTabla(tabla: any): void {
     this.tablaSeleccionada = tabla;
-    this.mostrarModal = true;
+    this.mostrarModal  = true;
+    this.mostrarInsert = false;
 
-    this.columnas = [];
-    this.filas = [];
+    /* limpiar estado */
+    this.columnas  = [];
+    this.filas     = [];
     this.atributos = [];
+    this.nuevaFila = [];
 
+    /* -------- obtener datos (si tiene SELECT) -------- */
     if (tabla.privileges.select) {
-      this.authService.obtenerDatosTabla(tabla.owner, tabla.table_name).subscribe({
-        next: (res) => {
-          // Soporta respuesta con objetos de columna con tipo
-          if (res.columns.length && typeof res.columns[0] === 'object') {
-            this.atributos = res.columns.map((col: any) => ({
-              name: col.name,
-              type: col.type || 'Desconocido'
-            }));
-            this.columnas = this.atributos.map(attr => attr.name);
-          } else {
-            // Soporte para respuesta simple con solo nombres
-            this.columnas = res.columns;
-            this.atributos = res.columns.map((name: string) => ({
-              name,
-              type: 'Desconocido'
-            }));
-          }
+      this.auth.obtenerDatosTabla(tabla.owner, tabla.table_name)
+        .subscribe({
+          next : (r: DatosTablaResponse) => {
+            this.filas    = r.data ?? [];
+            this.columnas = r.columns.map(c => (c as any).name ?? c);
+            this.nuevaFila = Array(this.columnas.length).fill('');
+          },
+          error: () => this.error = 'No se pudieron cargar los datos.'
+        });
 
-          this.filas = res.data;
-        },
-        error: (err) => {
-          console.error('Error al obtener datos de la tabla:', err);
-          this.error = 'No se pudieron cargar los datos de la tabla';
-        }
-      });
+      /* -------- obtener tipos de columnas -------- */
+      this.auth.getTiposDeTabla(tabla.owner, tabla.table_name)
+        .subscribe({
+          next : (r: TiposTablaResponse) => {
+            this.atributos = r.columns.map(col => ({
+              name: col.name,
+              type: col.type || 'VARCHAR'
+            }));
+          },
+          error: e => console.error('Error tipos:', e)
+        });
     }
   }
 
+  /* ========================================================= */
+  /*  Cerrar modal principal                                   */
+  /* ========================================================= */
   cerrarModal(): void {
-    this.mostrarModal = false;
+    this.mostrarModal  = false;
+    this.mostrarInsert = false;
     this.tablaSeleccionada = null;
+
     this.columnas = [];
-    this.filas = [];
-    this.atributos = [];
+    this.filas    = [];
+    this.atributos= [];
+    this.nuevaFila= [];
   }
 
-  accion(tipo: string): void {
-    console.log(`Acción '${tipo}' en tabla '${this.tablaSeleccionada.table_name}'`);
-    // Aquí podrías abrir un modal de edición, inserción o eliminación
+  /* ========================================================= */
+  /*  Abrir / cerrar modal de inserción                        */
+  /* ========================================================= */
+  abrirInsert(): void {
+    if (this.tablaSeleccionada?.privileges.insert) {
+      this.nuevaFila   = Array(this.columnas.length).fill('');
+      this.mostrarInsert = true;
+    }
+  }
+  cerrarInsert(): void { this.mostrarInsert = false; }
+
+  /* ========================================================= */
+  /*  Insertar fila                                            */
+  /* ========================================================= */
+  insertarFila(): void {
+    if (!this.tablaSeleccionada) { return; }
+
+    /** mapeo de valores al tipo adecuado */
+    const filaConvertida = this.nuevaFila.map((v, i) => {
+      const tipo = (this.atributos[i]?.type || '').toUpperCase();
+      if (v === '' || v === null) return null;
+      return tipo.includes('NUMBER') || tipo.includes('INT')
+        ? Number(v)
+        : v;
+    });
+
+    this.auth.insertarDatosTabla(
+      this.tablaSeleccionada.owner,
+      this.tablaSeleccionada.table_name,
+      this.columnas,
+      [filaConvertida]            // backend espera array de filas
+    ).subscribe({
+      next : () => {
+        alert('Fila insertada');
+
+        /* refrescar datos si el usuario tiene SELECT, para que vea la fila nueva */
+        if (this.tablaSeleccionada.privileges.select) {
+          this.editarTabla(this.tablaSeleccionada);
+        } else {
+          this.cerrarInsert();
+        }
+      },
+      error: e => { console.error(e); alert('Error al insertar'); }
+    });
   }
 
+  /* ========================================================= */
+  /*  Util: obtener tipo para cabecera                         */
+  /* ========================================================= */
   obtenerTipoDato(nombreColumna: string): string {
-    const atributo = this.atributos.find(attr => attr.name === nombreColumna);
-    return atributo ? atributo.type : 'Desconocido';
+    const a = this.atributos.find(x => x.name === nombreColumna);
+    return a ? a.type : 'Desconocido';
   }
 }
