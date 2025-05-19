@@ -48,6 +48,64 @@ api.post('/login', async (req, res) => {
     }
 });
 
+api.get('/privilegios', verificar, async (req, res) => {
+    try {
+        const connection = await oracledb.getConnection({
+            user: req.user,
+            password: req.password,
+            connectString: process.env.ORACLE_CONNECT_STRING
+        });
+
+        const result = await connection.execute(
+            `SELECT privilege FROM user_sys_privs`
+        );
+
+        await connection.close();
+
+        // Si la conexión es exitosa, se genera un token
+        console.log(`El usuario ${req.user} solicitó los privilegios de la BDD Exitosamente`);
+
+        res.json({
+            result: result.rows.map(row => row[0])
+        });
+    } catch (err) {
+        // Manejo simple por código de error
+        console.error('Error al solicitar privilegios a Oracle:\n', err);
+        res.status(500).json({
+            error: 'Error al solicitar privilegios a Oracle',
+            details: err.message
+        });
+    }
+});
+
+api.get('/rol', verificar, async (req, res) => {
+    try {
+        const connection = await oracledb.getConnection({
+            user: req.user,
+            password: req.password,
+            connectString: process.env.ORACLE_CONNECT_STRING
+        });
+
+        const result = await connection.execute(
+            `SELECT granted_role FROM user_role_privs`
+        );
+
+        await connection.close();
+
+        // Si la conexión es exitosa, se genera un token
+        console.log(`El usuario ${req.user} solicitó los roles de la BDD Exitosamente`);
+
+        res.json(result.rows.map(row => row[0]));
+    } catch (err) {
+        // Manejo simple por código de error
+        console.error('Error al solicitar roles a Oracle:\n', err);
+        res.status(500).json({
+            error: 'Error al solicitar roles a Oracle',
+            details: err.message
+        });
+    }
+});
+
 api.get('/tablas', verificar, async (req, res) => {
     try {
         const connection = await oracledb.getConnection({
