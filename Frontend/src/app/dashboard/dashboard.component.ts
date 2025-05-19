@@ -14,6 +14,12 @@ export class DashboardComponent implements OnInit {
   tablas: any[] = [];
   error: string = '';
 
+  mostrarModal: boolean = false;
+  tablaSeleccionada: any = null;
+
+  columnas: string[] = [];
+  filas: any[][] = [];
+
   constructor(private authService: AuthService, private router: Router) {}
 
   ngOnInit(): void {
@@ -33,8 +39,35 @@ export class DashboardComponent implements OnInit {
   }
 
   editarTabla(tabla: any): void {
-    console.log('Modificando tabla:', tabla.table_name);
-    // Aquí podrías redirigir a una ruta específica si lo deseas
-    // this.router.navigate(['/editar', tabla.table_name]);
+    this.tablaSeleccionada = tabla;
+    this.mostrarModal = true;
+
+    this.columnas = [];
+    this.filas = [];
+
+    if (tabla.privileges.select) {
+      this.authService.obtenerDatosTabla(tabla.table_name).subscribe({
+        next: (res) => {
+          this.columnas = res.columns;
+          this.filas = res.rows;
+        },
+        error: (err) => {
+          console.error('Error al obtener datos de la tabla:', err);
+          this.error = 'No se pudieron cargar los datos de la tabla';
+        }
+      });
+    }
+  }
+
+  cerrarModal(): void {
+    this.mostrarModal = false;
+    this.tablaSeleccionada = null;
+    this.columnas = [];
+    this.filas = [];
+  }
+
+  accion(tipo: string): void {
+    console.log(`Acción '${tipo}' en tabla '${this.tablaSeleccionada.table_name}'`);
+    // Aquí luego podrías mostrar otro modal o vista por tipo de acción
   }
 }

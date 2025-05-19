@@ -36,4 +36,16 @@ export class AuthService {
       }
     });
   }
+  obtenerDatosTabla(tabla: string): Observable<{ columns: string[], rows: any[][] }> {
+    const token = this.obtenerToken();
+    return this.http.post<{ columns: string[], rows: any[][] }>(
+      `${this.apiUrl}/datos-tabla`,
+      { tabla },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+  }
 }

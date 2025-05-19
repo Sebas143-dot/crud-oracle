@@ -1,30 +1,71 @@
 <div class="container">
-    <div class="dashboard-container">
-        <h2 class="dashboard-title">Tablas disponibles</h2>
+  <div class="dashboard-container">
+    <h2 class="dashboard-title">Tablas disponibles</h2>
 
-        <div *ngIf="error" class="error">{{ error }}</div>
+    <div *ngIf="error" class="error">{{ error }}</div>
 
-        <div *ngIf="tablas.length > 0; else sinTablas" class="cards-container">
-            <div class="tabla-card" *ngFor="let t of tablas">
-                <h3>{{ t.table_name }}</h3>
-                <p><strong>Owner:</strong> {{ t.owner }}</p>
-                <div class="privilegios">
-                    <span *ngIf="t.privileges.select" class="badge select">SELECT</span>
-                    <span *ngIf="t.privileges.insert" class="badge insert">INSERT</span>
-                    <span *ngIf="t.privileges.update" class="badge update">UPDATE</span>
-                    <span *ngIf="t.privileges.delete" class="badge delete">DELETE</span>
-                </div>
-                <div class="actions">
-                    <button class="edit-btn" (click)="editarTabla(tablas)">Modificar</button>
-                </div>
+    <div *ngIf="tablas.length === 0 && !error" class="no-data">
+      No se encontraron tablas.
+    </div>
 
-            </div>
+    <div class="cards-container">
+      <div class="tabla-card" *ngFor="let tabla of tablas">
+        <h3>{{ tabla.table_name }}</h3>
+        <p><strong>Owner:</strong> {{ tabla.owner }}</p>
+
+        <div class="privilegios">
+          <span *ngIf="tabla.privileges.select" class="badge select">SELECT</span>
+          <span *ngIf="tabla.privileges.insert" class="badge insert">INSERT</span>
+          <span *ngIf="tabla.privileges.update" class="badge update">UPDATE</span>
+          <span *ngIf="tabla.privileges.delete" class="badge delete">DELETE</span>
         </div>
 
-        <ng-template #sinTablas>
-            <p class="no-data">No se encontraron tablas para este usuario.</p>
-        </ng-template>
-
-        <button (click)="logout()" class="logout-btn">Cerrar sesión</button>
+        <div class="actions">
+          <button class="edit-btn" (click)="editarTabla(tabla)">Modificar</button>
+        </div>
+      </div>
     </div>
+
+    <button class="logout-btn" (click)="logout()">Cerrar sesión</button>
+  </div>
+</div>
+
+<!-- Modal -->
+<div *ngIf="mostrarModal" class="modal-overlay">
+  <div class="modal">
+    <h2>Modificar tabla: {{ tablaSeleccionada?.table_name }}</h2>
+
+    <div class="modal-actions">
+      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.select" (click)="accion('select')">
+        SELECT
+      </button>
+      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.insert" (click)="accion('insert')">
+        INSERT
+      </button>
+      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.update" (click)="accion('update')">
+        UPDATE
+      </button>
+      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.delete" (click)="accion('delete')">
+        DELETE
+      </button>
+    </div>
+
+    <!-- Tabla de datos si tiene SELECT -->
+    <div *ngIf="columnas.length > 0 && filas.length > 0" class="tabla-wrapper" style="overflow-x:auto; margin-top: 20px;">
+      <table>
+        <thead>
+          <tr>
+            <th *ngFor="let col of columnas">{{ col }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let fila of filas">
+            <td *ngFor="let celda of fila">{{ celda }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <button class="close-btn" (click)="cerrarModal()">Cerrar</button>
+  </div>
 </div>
