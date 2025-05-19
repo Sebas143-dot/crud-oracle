@@ -36,9 +36,35 @@ export class AuthService {
       }
     });
   }
+
   obtenerDatosTabla(owner: string, tableName: string): Observable<any> {
     const token = this.obtenerToken();
-    return this.http.get(`${this.apiUrl}/tabla?owner=${owner}&table_name=${tableName}`, {
+    return this.http.get(`${this.apiUrl}/tabla`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: {
+        owner: owner.toUpperCase(),
+        table_name: tableName.toUpperCase()
+      }
+    });
+  }
+
+
+  getTiposDeTabla(owner: string, table_name: string): Observable<any> {
+    const token = this.obtenerToken();
+    return this.http.get(`${this.apiUrl}/types`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { owner, table_name }
+    });
+  }
+
+  insertarEnTabla(owner: string, tableName: string, columns: string[], data: any[][]): Observable<any> {
+    const token = this.obtenerToken();
+    return this.http.post(`${this.apiUrl}/tabla`, {
+      owner,
+      table_name: tableName,
+      columns,
+      data
+    }, {
       headers: {
         Authorization: `Bearer ${token}`
       }

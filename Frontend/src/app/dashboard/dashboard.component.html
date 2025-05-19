@@ -43,8 +43,8 @@
       <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.delete" (click)="accion('delete')">DELETE</button>
     </div>
 
-    <!-- Tabla: columnas con nombre y tipo + filas -->
-    <div *ngIf="columnas.length > 0 && filas.length > 0" class="tabla-wrapper" style="overflow-x:auto; margin-top: 20px;">
+    <!-- Tabla de columnas y tipos -->
+    <div *ngIf="columnas.length > 0" class="tabla-wrapper" style="overflow-x:auto; margin-top: 20px;">
       <table>
         <thead>
           <tr>
@@ -54,12 +54,33 @@
             </th>
           </tr>
         </thead>
+      </table>
+    </div>
+
+    <!-- Datos actuales -->
+    <div *ngIf="filas.length > 0" class="tabla-wrapper" style="overflow-x:auto; margin-top: 5px;">
+      <table>
         <tbody>
           <tr *ngFor="let fila of filas">
             <td *ngFor="let celda of fila">{{ celda }}</td>
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- FORMULARIO DE INSERT -->
+    <div *ngIf="nuevaFila?.length > 0" class="tabla-wrapper" style="overflow-x:auto; margin-top: 20px;">
+      <h4>Insertar nueva fila</h4>
+      <table>
+        <tbody>
+          <tr>
+            <td *ngFor="let col of columnas; let i = index">
+              <input type="text" [(ngModel)]="nuevaFila[i]" placeholder="{{ col }}" class="input-insert"/>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <button class="modal-btn" style="margin-top: 15px;" (click)="insertarFila()">Guardar</button>
     </div>
 
     <button class="close-btn" (click)="cerrarModal()">Cerrar</button>

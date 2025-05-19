@@ -1,12 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../services/auth.service';
+
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
@@ -20,7 +22,9 @@ export class DashboardComponent implements OnInit {
   columnas: string[] = [];
   filas: any[][] = [];
 
-  atributos: { name: string; type: string }[] = []; // 👈 Nuevo arreglo para tipos
+  atributos: { name: string; type: string }[] = [];
+
+  nuevaFila: string[] = []; // ✅ Inicializar vacío
 
   constructor(private authService: AuthService, private router: Router) { }
 
@@ -47,31 +51,29 @@ export class DashboardComponent implements OnInit {
     this.columnas = [];
     this.filas = [];
     this.atributos = [];
+    this.nuevaFila = [];
 
     if (tabla.privileges.select) {
       this.authService.obtenerDatosTabla(tabla.owner, tabla.table_name).subscribe({
         next: (res) => {
-          // Soporta respuesta con objetos de columna con tipo
-          if (res.columns.length && typeof res.columns[0] === 'object') {
-            this.atributos = res.columns.map((col: any) => ({
-              name: col.name,
-              type: col.type || 'Desconocido'
-            }));
-            this.columnas = this.atributos.map(attr => attr.name);
-          } else {
-            // Soporte para respuesta simple con solo nombres
-            this.columnas = res.columns;
-            this.atributos = res.columns.map((name: string) => ({
-              name,
-              type: 'Desconocido'
-            }));
-          }
-
           this.filas = res.data;
+          this.columnas = res.columns.map((col: any) => col.name);
         },
         error: (err) => {
           console.error('Error al obtener datos de la tabla:', err);
           this.error = 'No se pudieron cargar los datos de la tabla';
+        }
+      });
+
+      this.authService.getTiposDeTabla(tabla.owner, tabla.table_name).subscribe({
+        next: (res) => {
+          this.atributos = res.columns.map((col: any) => ({
+            name: col.name,
+            type: col.type || 'Desconocido'
+          }));
+        },
+        error: (err) => {
+          console.error('Error al obtener tipos de columnas:', err);
         }
       });
     }
@@ -83,15 +85,37 @@ export class DashboardComponent implements OnInit {
     this.columnas = [];
     this.filas = [];
     this.atributos = [];
+    this.nuevaFila = [];
   }
 
   accion(tipo: string): void {
+    if (tipo === 'insert') {
+      this.nuevaFila = new Array(this.columnas.length).fill('');
+    }
     console.log(`Acción '${tipo}' en tabla '${this.tablaSeleccionada.table_name}'`);
-    // Aquí podrías abrir un modal de edición, inserción o eliminación
   }
 
   obtenerTipoDato(nombreColumna: string): string {
     const atributo = this.atributos.find(attr => attr.name === nombreColumna);
     return atributo ? atributo.type : 'Desconocido';
+  }
+
+  insertarFila(): void {
+    if (!this.tablaSeleccionada) return;
+    this.authService.insertarEnTabla(
+      this.tablaSeleccionada.owner,
+      this.tablaSeleccionada.table_name,
+      this.columnas,
+      [this.nuevaFila]
+    ).subscribe({
+      next: () => {
+        alert('Fila insertada correctamente');
+        this.editarTabla(this.tablaSeleccionada); // Refresca los datos
+      },
+      error: (err) => {
+        console.error('Error al insertar:', err);
+        alert('Error al insertar datos');
+      }
+    });
   }
 }
