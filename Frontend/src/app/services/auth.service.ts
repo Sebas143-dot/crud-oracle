@@ -1,74 +1,72 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
+
+/* ---------- interfaces de respuesta ---------- */
+export interface TablasResponse {
+  result: any[];
+}
+
+export interface DatosTablaResponse {
+  columns: { name: string }[];    // el backend envía objetos {name,type}
+  data   : any[][];
+}
+
+export interface TiposTablaResponse {
+  columns: { name: string; type: string }[];
+}
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private apiUrl = 'http://localhost:3000/api';
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) {}
 
-  login(user: string, password: string): Observable<{ token: string }> {
-    return this.http.post<{ token: string }>(`${this.apiUrl}/login`, { user, password });
-  }
-
-  guardarToken(token: string): void {
-    localStorage.setItem('token', token);
-  }
-
-  obtenerToken(): string | null {
-    return localStorage.getItem('token');
-  }
-
-  cerrarSesion(): void {
-    localStorage.removeItem('token');
-  }
-
-  estaAutenticado(): boolean {
-    return !!this.obtenerToken();
-  }
-
-  getTablas(): Observable<any> {
-    const token = this.obtenerToken();
-    return this.http.get(`${this.apiUrl}/tablas`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+  /* ========== helpers ========== */
+  private header(): HttpHeaders {
+    return new HttpHeaders({
+      Authorization: `Bearer ${this.obtenerToken() || ''}`
     });
   }
 
-  obtenerDatosTabla(owner: string, tableName: string): Observable<any> {
-    const token = this.obtenerToken();
-    return this.http.get(`${this.apiUrl}/tabla`, {
-      headers: { Authorization: `Bearer ${token}` },
-      params: {
-        owner: owner.toUpperCase(),
-        table_name: tableName.toUpperCase()
-      }
+  /* ========== auth ========== */
+  login(user:string, password:string){
+    return this.http.post<{token:string}>(`${this.apiUrl}/login`, { user, password });
+  }
+  guardarToken(t:string){ localStorage.setItem('token', t); }
+  obtenerToken(){ return localStorage.getItem('token'); }
+  cerrarSesion(){ localStorage.removeItem('token'); }
+  estaAutenticado(){ return !!this.obtenerToken(); }
+
+  /* ========== tablas ========== */
+  getTablas(): Observable<TablasResponse>{
+    return this.http.get<TablasResponse>(`${this.apiUrl}/tablas`, { headers:this.header() });
+  }
+
+  obtenerDatosTabla(owner:string, tableName:string): Observable<DatosTablaResponse>{
+    return this.http.get<DatosTablaResponse>(`${this.apiUrl}/tabla`, {
+      headers: this.header(),
+      params : { owner, table_name: tableName }
     });
   }
 
-
-  getTiposDeTabla(owner: string, table_name: string): Observable<any> {
-    const token = this.obtenerToken();
-    return this.http.get(`${this.apiUrl}/types`, {
-      headers: { Authorization: `Bearer ${token}` },
-      params: { owner, table_name }
+  getTiposDeTabla(owner:string, tableName:string): Observable<TiposTablaResponse>{
+    return this.http.get<TiposTablaResponse>(`${this.apiUrl}/types`, {
+      headers: this.header(),
+      params : { owner, table_name: tableName }
     });
   }
 
-  insertarEnTabla(owner: string, tableName: string, columns: string[], data: any[][]): Observable<any> {
-    const token = this.obtenerToken();
-    return this.http.post(`${this.apiUrl}/tabla`, {
-      owner,
-      table_name: tableName,
-      columns,
-      data
-    }, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
+  insertarDatosTabla(
+    owner:string,
+    tableName:string,
+    columns:string[],
+    data:any[][]
+  ){
+    return this.http.post(
+      `${this.apiUrl}/tabla`,
+      { owner, table_name: tableName, columns, data },
+      { headers: this.header() }
+    );
   }
-
 }

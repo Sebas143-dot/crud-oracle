@@ -1,30 +1,27 @@
+<!-- ============ LISTA DE TABLAS ============ -->
 <div class="container">
   <div class="dashboard-container">
     <h2 class="dashboard-title">Tablas disponibles</h2>
 
-    <!-- Errores -->
-    <div *ngIf="error" class="error">{{ error }}</div>
-
-    <!-- Sin datos -->
-    <div *ngIf="tablas.length === 0 && !error" class="no-data">
+    <div class="error" *ngIf="error">{{error}}</div>
+    <div class="no-data" *ngIf="tablas.length===0 && !error">
       No se encontraron tablas.
     </div>
 
-    <!-- Tarjetas de tablas -->
     <div class="cards-container">
-      <div class="tabla-card" *ngFor="let tabla of tablas">
-        <h3>{{ tabla.table_name }}</h3>
-        <p><strong>Owner:</strong> {{ tabla.owner }}</p>
+      <div class="tabla-card" *ngFor="let t of tablas">
+        <h3>{{t.table_name}}</h3>
+        <p><strong>Owner:</strong> {{t.owner}}</p>
 
         <div class="privilegios">
-          <span class="badge select"  *ngIf="tabla.privileges.select">SELECT</span>
-          <span class="badge insert"  *ngIf="tabla.privileges.insert">INSERT</span>
-          <span class="badge update"  *ngIf="tabla.privileges.update">UPDATE</span>
-          <span class="badge delete"  *ngIf="tabla.privileges.delete">DELETE</span>
+          <span class="badge select"  *ngIf="t.privileges.select">SELECT</span>
+          <span class="badge insert"  *ngIf="t.privileges.insert">INSERT</span>
+          <span class="badge update"  *ngIf="t.privileges.update">UPDATE</span>
+          <span class="badge delete"  *ngIf="t.privileges.delete">DELETE</span>
         </div>
 
         <div class="actions">
-          <button class="edit-btn" (click)="editarTabla(tabla)">Modificar</button>
+          <button class="edit-btn" (click)="editarTabla(t)">Modificar</button>
         </div>
       </div>
     </div>
@@ -33,39 +30,32 @@
   </div>
 </div>
 
-<!-- ──────── Modal ──────── -->
+<!-- ============ MODAL PRINCIPAL (datos) ============ -->
 <div class="modal-overlay" *ngIf="mostrarModal">
   <div class="modal">
+    <h2>Modificar tabla: {{tablaSeleccionada?.table_name}}</h2>
 
-    <h2>Modificar tabla: {{ tablaSeleccionada?.table_name }}</h2>
-
-    <!-- Botones por permiso -->
+    <!-- Botones permiso -->
     <div class="modal-actions">
-      <button class="modal-btn"
-              *ngIf="tablaSeleccionada?.privileges.select"
-              (click)="accion('select')">SELECT</button>
-
-      <button class="modal-btn"
-              *ngIf="tablaSeleccionada?.privileges.insert"
-              (click)="accion('insert')">INSERT</button>
-
-      <button class="modal-btn"
-              *ngIf="tablaSeleccionada?.privileges.update"
-              (click)="accion('update')">UPDATE</button>
-
-      <button class="modal-btn"
-              *ngIf="tablaSeleccionada?.privileges.delete"
-              (click)="accion('delete')">DELETE</button>
+      <button class="modal-btn" 
+              *ngIf="tablaSeleccionada?.privileges.select">SELECT</button>
+      <button class="modal-btn" 
+              *ngIf="tablaSeleccionada?.privileges.insert" 
+              (click)="abrirInsert()">INSERT</button>
+      <button class="modal-btn" 
+              *ngIf="tablaSeleccionada?.privileges.update">UPDATE</button>
+      <button class="modal-btn" 
+              *ngIf="tablaSeleccionada?.privileges.delete">DELETE</button>
     </div>
 
-    <!-- Encabezado columnas + tipo -->
+    <!-- Encabezado columnas / tipos -->
     <div class="tabla-wrapper" *ngIf="columnas?.length">
       <table>
         <thead>
           <tr>
-            <th *ngFor="let col of columnas">
-              {{ col }}
-              <div class="tipo-dato">{{ obtenerTipoDato(col) }}</div>
+            <th *ngFor="let c of columnas">
+              {{c}}
+              <div class="tipo-dato">{{obtenerTipoDato(c)}}</div>
             </th>
           </tr>
         </thead>
@@ -76,30 +66,37 @@
     <div class="tabla-wrapper" *ngIf="filas?.length">
       <table>
         <tbody>
-          <tr *ngFor="let fila of filas">
-            <td *ngFor="let celda of fila">{{ celda }}</td>
+          <tr *ngFor="let f of filas">
+            <td *ngFor="let cel of f">{{cel}}</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- Formulario Insert -->
-    <div class="tabla-wrapper"
-         *ngIf="tablaSeleccionada?.privileges.insert && nuevaFila && nuevaFila.length">
-      <h4 style="margin-top:20px">Insertar nueva fila</h4>
+    <button class="close-btn" (click)="cerrarModal()">Cerrar</button>
+  </div>
+</div>
 
+<!-- ============ MODAL INSERT (formulario) ============ -->
+<div class="modal-overlay" *ngIf="mostrarInsert">
+  <div class="modal">
+    <h3>Insertar fila en {{tablaSeleccionada?.table_name}}</h3>
+
+    <div class="tabla-wrapper" *ngIf="nuevaFila?.length">
       <table>
         <tr>
           <td *ngFor="let valor of nuevaFila; let i = index">
-            <input [(ngModel)]="nuevaFila[i]" class="input-insert"/>
+            <input [(ngModel)]="nuevaFila[i]" 
+                   class="input-insert"
+                   placeholder="{{columnas[i]}}" />
           </td>
         </tr>
       </table>
-
-      <button class="modal-btn" style="margin-top:15px"
-              (click)="insertarFila()">Guardar</button>
     </div>
 
-    <button class="close-btn" (click)="cerrarModal()">Cerrar</button>
+    <div class="modal-actions" style="margin-top:15px;">
+      <button class="modal-btn"  (click)="insertarFila()">Guardar</button>
+      <button class="close-btn" (click)="cerrarInsert()">Cancelar</button>
+    </div>
   </div>
 </div>
