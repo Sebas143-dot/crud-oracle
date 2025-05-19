@@ -294,3 +294,10 @@ th, td {
 tbody tr:nth-child(even) {
   background-color: #f9f9f9;
 }
+
+.tipo-dato {
+  font-size: 11px;
+  color: #777;
+  font-style: italic;
+  margin-top: 4px;
+}
