@@ -143,5 +143,132 @@ api.get('/tabla', verificar, async (req, res) => {
     }
 });
 
+api.post('/tabla', verificar, async (req, res) => {
+    const { owner, table_name, columns, data } = req.body;
+
+    if (!owner || !table_name || !data || !columns) {
+        return res.status(400).json({
+            error: 'Faltan parámetros owner, table_name, columns o data'
+        });
+    }
+
+    try {
+        const connection = await oracledb.getConnection({
+            user: req.user,
+            password: req.password,
+            connectString: process.env.ORACLE_CONNECT_STRING
+        });
+
+        let sql = ``;
+
+        if (data.length === 1) {
+            sql = `INSERT INTO ${owner}.${table_name} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`;
+        } else {
+            sql = `INSERT INTO ${owner}.${table_name} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`;
+        }
+
+        await connection.executeMany(sql, data);
+
+        await connection.commit();
+        await connection.close();
+
+        console.log(`El usuario ${req.user} insertó datos en la tabla '${owner}.${table_name}' de la BDD Exitosamente`);
+
+        res.json({
+            message: 'Datos insertados correctamente'
+        });
+    } catch (err) {
+        // Manejo simple por código de error
+        console.error('Error al insertar datos en Oracle:\n', err);
+        res.status(500).json({
+            error: 'Error al insertar datos en Oracle',
+            details: err.message
+        });
+    }
+});
+
+api.put('/tabla', verificar, async (req, res) => {
+    const { owner, table_name, columns, data } = req.body;
+
+    if (!owner || !table_name || !data || !columns) {
+        return res.status(400).json({
+            error: 'Faltan parámetros owner, table_name, columns o data'
+        });
+    }
+
+    try {
+        const connection = await oracledb.getConnection({
+            user: req.user,
+            password: req.password,
+            connectString: process.env.ORACLE_CONNECT_STRING
+        });
+
+        let sql = ``;
+
+        if (data.length === 1) {
+            sql = `UPDATE ${owner}.${table_name} SET ${columns.map(col => `${col} = ?`).join(', ')} WHERE ${columns[0]} = ?`;
+        } else {
+            sql = `UPDATE ${owner}.${table_name} SET ${columns.map(col => `${col} = ?`).join(', ')} WHERE ${columns[0]} = ?`;
+        }
+
+        await connection.executeMany(sql, data);
+
+        await connection.commit();
+        await connection.close();
+
+        console.log(`El usuario ${req.user} actualizó datos en la tabla '${owner}.${table_name}' de la BDD Exitosamente`);
+
+        res.json({
+            message: 'Datos actualizados correctamente'
+        });
+    } catch (err) {
+        // Manejo simple por código de error
+        console.error('Error al actualizar datos en Oracle:\n', err);
+        res.status(500).json({
+            error: 'Error al actualizar datos en Oracle',
+            details: err.message
+        });
+    }
+});
+
+api.delete('/tabla', verificar, async (req, res) => {
+    const { owner, table_name, column, data } = req.body;
+
+    if (!owner || !table_name || !data || !column) {
+        return res.status(400).json({
+            error: 'Faltan parámetros owner, table_name, columns o data'
+        });
+    }
+
+    try {
+        const connection = await oracledb.getConnection({
+            user: req.user,
+            password: req.password,
+            connectString: process.env.ORACLE_CONNECT_STRING
+        });
+
+        let sql = ``;
+
+        sql = `DELETE FROM ${owner}.${table_name} WHERE ${column} IN (${data.map(() => '?').join(', ')})`;
+
+        await connection.executeMany(sql, data);
+
+        await connection.commit();
+        await connection.close();
+
+        console.log(`El usuario ${req.user} eliminó datos en la tabla '${owner}.${table_name}' de la BDD Exitosamente`);
+
+        res.json({
+            message: 'Datos eliminados correctamente'
+        });
+    } catch (err) {
+        // Manejo simple por código de error
+        console.error('Error al eliminar datos en Oracle:\n', err);
+        res.status(500).json({
+            error: 'Error al eliminar datos en Oracle',
+            details: err.message
+        });
+    }
+});
 
 module.exports = api;
