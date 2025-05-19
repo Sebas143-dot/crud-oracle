@@ -104,6 +104,52 @@ api.get('/tablas', verificar, async (req, res) => {
     }
 });
 
+api.get('/types', verificar, async (req, res) => {
+    const { owner, table_name } = req.query;
+
+    if (!owner || !table_name) {
+        return res.status(400).json({
+            error: 'Faltan parámetros owner o table_name'
+        });
+    }
+
+    try {
+        const connection = await oracledb.getConnection({
+            user: req.user,
+            password: req.password,
+            connectString: process.env.ORACLE_CONNECT_STRING
+        });
+
+        // Consulta los nombres y tipos de columnas de la tabla
+        const result = await connection.execute(
+            `SELECT COLUMN_NAME, DATA_TYPE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE
+             FROM ALL_TAB_COLUMNS
+             WHERE OWNER = :owner AND TABLE_NAME = :table_name
+             ORDER BY COLUMN_ID`,
+            { owner: owner.toUpperCase(), table_name: table_name.toUpperCase() }
+        );
+
+        await connection.close();
+
+        // Formatea la respuesta
+        const columns = result.rows.map(row => ({
+            name: row[0],
+            type: row[1],
+            length: row[2],
+            precision: row[3],
+            scale: row[4]
+        }));
+
+        res.json({ columns });
+    } catch (err) {
+        console.error('Error al solicitar tipos de columnas a Oracle:\n', err);
+        res.status(500).json({
+            error: 'Error al solicitar tipos de columnas a Oracle',
+            details: err.message
+        });
+    }
+});
+
 api.get('/tabla', verificar, async (req, res) => {
     const { owner, table_name } = req.query;
 
@@ -248,13 +294,21 @@ api.put('/tabla', verificar, async (req, res) => {
 });
 
 api.delete('/tabla', verificar, async (req, res) => {
-    const { owner, table_name, column, data } = req.body;
+    let { owner, table_name, key_column, key_data } = req.body;
 
-    if (!owner || !table_name || !data || !column) {
+    if (!owner || !table_name || !key_data || !key_column) {
         return res.status(400).json({
-            error: 'Faltan parámetros owner, table_name, columns o data'
+            error: 'Faltan parámetros owner, table_name, key_column o key_data'
         });
     }
+
+    // Si key_data es un solo valor, conviértelo en array
+    if (!Array.isArray(key_data)) {
+        key_data = [key_data];
+    }
+
+    // Convierte a array de arrays para executeMany
+    const binds = key_data.map(val => [val]);
 
     try {
         const connection = await oracledb.getConnection({
@@ -263,11 +317,9 @@ api.delete('/tabla', verificar, async (req, res) => {
             connectString: process.env.ORACLE_CONNECT_STRING
         });
 
-        let sql = ``;
+        const sql = `DELETE FROM ${owner}.${table_name} WHERE ${key_column} = :1`;
 
-        sql = `DELETE FROM ${owner}.${table_name} WHERE ${column} IN (${data.map(() => '?').join(', ')})`;
-
-        await connection.executeMany(sql, data);
+        await connection.executeMany(sql, binds);
 
         await connection.commit();
         await connection.close();
@@ -278,7 +330,6 @@ api.delete('/tabla', verificar, async (req, res) => {
             message: 'Datos eliminados correctamente'
         });
     } catch (err) {
-        // Manejo simple por código de error
         console.error('Error al eliminar datos en Oracle:\n', err);
         res.status(500).json({
             error: 'Error al eliminar datos en Oracle',
