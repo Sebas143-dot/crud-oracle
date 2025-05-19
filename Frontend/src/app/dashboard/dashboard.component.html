@@ -2,22 +2,25 @@
   <div class="dashboard-container">
     <h2 class="dashboard-title">Tablas disponibles</h2>
 
+    <!-- Errores -->
     <div *ngIf="error" class="error">{{ error }}</div>
 
+    <!-- Sin datos -->
     <div *ngIf="tablas.length === 0 && !error" class="no-data">
       No se encontraron tablas.
     </div>
 
+    <!-- Tarjetas de tablas -->
     <div class="cards-container">
       <div class="tabla-card" *ngFor="let tabla of tablas">
         <h3>{{ tabla.table_name }}</h3>
         <p><strong>Owner:</strong> {{ tabla.owner }}</p>
 
         <div class="privilegios">
-          <span *ngIf="tabla.privileges.select" class="badge select">SELECT</span>
-          <span *ngIf="tabla.privileges.insert" class="badge insert">INSERT</span>
-          <span *ngIf="tabla.privileges.update" class="badge update">UPDATE</span>
-          <span *ngIf="tabla.privileges.delete" class="badge delete">DELETE</span>
+          <span class="badge select"  *ngIf="tabla.privileges.select">SELECT</span>
+          <span class="badge insert"  *ngIf="tabla.privileges.insert">INSERT</span>
+          <span class="badge update"  *ngIf="tabla.privileges.update">UPDATE</span>
+          <span class="badge delete"  *ngIf="tabla.privileges.delete">DELETE</span>
         </div>
 
         <div class="actions">
@@ -30,21 +33,33 @@
   </div>
 </div>
 
-<!-- Modal -->
-<div *ngIf="mostrarModal" class="modal-overlay">
+<!-- ──────── Modal ──────── -->
+<div class="modal-overlay" *ngIf="mostrarModal">
   <div class="modal">
+
     <h2>Modificar tabla: {{ tablaSeleccionada?.table_name }}</h2>
 
-    <!-- Botones según permisos -->
+    <!-- Botones por permiso -->
     <div class="modal-actions">
-      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.select" (click)="accion('select')">SELECT</button>
-      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.insert" (click)="accion('insert')">INSERT</button>
-      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.update" (click)="accion('update')">UPDATE</button>
-      <button class="modal-btn" *ngIf="tablaSeleccionada?.privileges.delete" (click)="accion('delete')">DELETE</button>
+      <button class="modal-btn"
+              *ngIf="tablaSeleccionada?.privileges.select"
+              (click)="accion('select')">SELECT</button>
+
+      <button class="modal-btn"
+              *ngIf="tablaSeleccionada?.privileges.insert"
+              (click)="accion('insert')">INSERT</button>
+
+      <button class="modal-btn"
+              *ngIf="tablaSeleccionada?.privileges.update"
+              (click)="accion('update')">UPDATE</button>
+
+      <button class="modal-btn"
+              *ngIf="tablaSeleccionada?.privileges.delete"
+              (click)="accion('delete')">DELETE</button>
     </div>
 
-    <!-- Tabla de columnas y tipos -->
-    <div *ngIf="columnas.length > 0" class="tabla-wrapper" style="overflow-x:auto; margin-top: 20px;">
+    <!-- Encabezado columnas + tipo -->
+    <div class="tabla-wrapper" *ngIf="columnas?.length">
       <table>
         <thead>
           <tr>
@@ -58,7 +73,7 @@
     </div>
 
     <!-- Datos actuales -->
-    <div *ngIf="filas.length > 0" class="tabla-wrapper" style="overflow-x:auto; margin-top: 5px;">
+    <div class="tabla-wrapper" *ngIf="filas?.length">
       <table>
         <tbody>
           <tr *ngFor="let fila of filas">
@@ -68,19 +83,21 @@
       </table>
     </div>
 
-    <!-- FORMULARIO DE INSERT -->
-    <div *ngIf="nuevaFila?.length > 0" class="tabla-wrapper" style="overflow-x:auto; margin-top: 20px;">
-      <h4>Insertar nueva fila</h4>
+    <!-- Formulario Insert -->
+    <div class="tabla-wrapper"
+         *ngIf="tablaSeleccionada?.privileges.insert && nuevaFila && nuevaFila.length">
+      <h4 style="margin-top:20px">Insertar nueva fila</h4>
+
       <table>
-        <tbody>
-          <tr>
-            <td *ngFor="let col of columnas; let i = index">
-              <input type="text" [(ngModel)]="nuevaFila[i]" placeholder="{{ col }}" class="input-insert"/>
-            </td>
-          </tr>
-        </tbody>
+        <tr>
+          <td *ngFor="let valor of nuevaFila; let i = index">
+            <input [(ngModel)]="nuevaFila[i]" class="input-insert"/>
+          </td>
+        </tr>
       </table>
-      <button class="modal-btn" style="margin-top: 15px;" (click)="insertarFila()">Guardar</button>
+
+      <button class="modal-btn" style="margin-top:15px"
+              (click)="insertarFila()">Guardar</button>
     </div>
 
     <button class="close-btn" (click)="cerrarModal()">Cerrar</button>
