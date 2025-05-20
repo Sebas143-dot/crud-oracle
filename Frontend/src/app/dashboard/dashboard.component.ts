@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
-// Importa NavbarComponent, ajusta la ruta según tu estructura de carpetas
 import { NavbarComponent } from '../navbar/navbar.component';
 
 import {
