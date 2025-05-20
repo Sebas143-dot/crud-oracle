@@ -9,7 +9,7 @@ body, html {
   height: 100%;
   width: 100%;
   overflow-x: hidden;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
@@ -87,12 +87,7 @@ body {
   color: #666;
 }
 
-.privilegios {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
+/* Badges con mejoras de color y hover */
 .badge {
   padding: 6px 10px;
   font-size: 12px;
@@ -100,19 +95,43 @@ body {
   border-radius: 12px;
   color: white;
   white-space: nowrap;
+  transition: background-color 0.3s ease;
+  cursor: default;
 }
 
-.select { background-color: #4caf50; }
-.insert { background-color: #2196f3; }
-.update { background-color: #ff9800; }
-.delete { background-color: #f44336; }
-
-.actions {
-  position: absolute;
-  bottom: 15px;
-  right: 15px;
+.select {
+  background-color: #4caf50;
 }
 
+.select:hover {
+  background-color: #43a047;
+}
+
+.insert {
+  background-color: #2196f3;
+}
+
+.insert:hover {
+  background-color: #1e88e5;
+}
+
+.update {
+  background-color: #ff9800;
+}
+
+.update:hover {
+  background-color: #fb8c00;
+}
+
+.delete {
+  background-color: #f44336;
+}
+
+.delete:hover {
+  background-color: #e53935;
+}
+
+/* Botón editar con icono y mejoras */
 .edit-btn {
   background: linear-gradient(to right, #667eea, #764ba2);
   color: white;
@@ -123,6 +142,9 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .edit-btn:hover {
@@ -131,11 +153,17 @@ body {
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
+.actions {
+  position: absolute;
+  bottom: 15px;
+  right: 15px;
+}
+
 .logout-btn {
   width: 100%;
   max-width: 300px;
   padding: 15px;
-  background: linear-gradient(to right, #667eea, #764ba2);
+  background: linear-gradient(to right, #4c51bf, #667eea);
   border: none;
   border-radius: 8px;
   color: white;
@@ -144,12 +172,12 @@ body {
   cursor: pointer;
   transition: all 0.3s ease;
   margin-top: 20px;
+  box-shadow: 0 4px 8px rgba(76, 81, 191, 0.6);
 }
 
 .logout-btn:hover {
-  background: linear-gradient(to right, #5a6fd6, #6a429a);
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+  background: linear-gradient(to right, #3b3f99, #5562d1);
+  box-shadow: 0 6px 15px rgba(51, 56, 155, 0.8);
 }
 
 .error {
@@ -168,8 +196,14 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* === Modal === */
@@ -179,11 +213,13 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0,0,0,0.4);
+  background-color: rgba(0,0,0,0.5);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .modal {
@@ -194,7 +230,11 @@ body {
   max-width: 800px;
   max-height: 90vh;
   overflow-y: auto;
-  animation: fadeIn 0.3s ease-out;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  transform: translateY(0);
+  opacity: 1;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  position: relative;
 }
 
 .modal h2 {
@@ -221,8 +261,11 @@ body {
 }
 
 .close-btn {
-  margin: 20px auto 0;
-  display: block;
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  margin: 0;
+  display: inline-block;
   background: #e74c3c;
   color: white;
   padding: 10px 20px;
@@ -230,11 +273,22 @@ body {
   border-radius: 8px;
   font-weight: bold;
   cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  transition: background-color 0.3s ease;
+}
+
+.close-btn:hover {
+  background-color: #c0392b;
 }
 
 .tabla-wrapper {
   overflow-x: auto;
   margin-top: 20px;
+}
+
+/* Zebra striping para filas */
+table tbody tr:nth-child(even) {
+  background-color: #f9f9ff;
 }
 
 table {
@@ -254,4 +308,32 @@ th .tipo-dato {
   font-size: 11px;
   color: #888;
   margin-top: 4px;
+}
+
+/* Paginación */
+.paginacion {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.paginacion button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background-color: #667eea;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.paginacion button:disabled {
+  background-color: #a3b1ff;
+  cursor: default;
+}
+
+.paginacion button:hover:not(:disabled) {
+  background-color: #5a6fd6;
 }

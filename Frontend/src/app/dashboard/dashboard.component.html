@@ -1,10 +1,13 @@
+<!-- ============ Navbar ============ -->
+<app-navbar></app-navbar>
+
 <!-- ============ LISTA DE TABLAS ============ -->
 <div class="container">
   <div class="dashboard-container">
     <h2 class="dashboard-title">Tablas disponibles</h2>
 
     <div class="error" *ngIf="error">{{error}}</div>
-    <div class="no-data" *ngIf="tablas.length===0 && !error">
+    <div class="no-data" *ngIf="tablas.length === 0 && !error">
       No se encontraron tablas.
     </div>
 
@@ -14,14 +17,16 @@
         <p><strong>Owner:</strong> {{t.owner}}</p>
 
         <div class="privilegios">
-          <span class="badge select"  *ngIf="t.privileges.select">SELECT</span>
-          <span class="badge insert"  *ngIf="t.privileges.insert">INSERT</span>
-          <span class="badge update"  *ngIf="t.privileges.update">UPDATE</span>
-          <span class="badge delete"  *ngIf="t.privileges.delete">DELETE</span>
+          <span class="badge select" *ngIf="t.privileges.select">SELECT</span>
+          <span class="badge insert" *ngIf="t.privileges.insert">INSERT</span>
+          <span class="badge update" *ngIf="t.privileges.update">UPDATE</span>
+          <span class="badge delete" *ngIf="t.privileges.delete">DELETE</span>
         </div>
 
         <div class="actions">
-          <button class="edit-btn" (click)="editarTabla(t)">Modificar</button>
+          <button class="edit-btn" (click)="editarTabla(t)" title="Modificar tabla">
+            ✏️ Modificar
+          </button>
         </div>
       </div>
     </div>
@@ -31,22 +36,9 @@
 </div>
 
 <!-- ============ MODAL PRINCIPAL (datos) ============ -->
-<div class="modal-overlay" *ngIf="mostrarModal">
-  <div class="modal">
-    <h2>Modificar tabla: {{tablaSeleccionada?.table_name}}</h2>
-
-    <!-- Botones permiso -->
-    <div class="modal-actions">
-      <button class="modal-btn" 
-              *ngIf="tablaSeleccionada?.privileges.select">SELECT</button>
-      <button class="modal-btn" 
-              *ngIf="tablaSeleccionada?.privileges.insert" 
-              (click)="abrirInsert()">INSERT</button>
-      <button class="modal-btn" 
-              *ngIf="tablaSeleccionada?.privileges.update">UPDATE</button>
-      <button class="modal-btn" 
-              *ngIf="tablaSeleccionada?.privileges.delete">DELETE</button>
-    </div>
+<div class="modal-overlay" [class.show]="modalVisible" *ngIf="mostrarModal">
+  <div class="modal" [class.show]="modalVisible">
+    <h2>Contenido: {{tablaSeleccionada?.table_name}}</h2>
 
     <!-- Encabezado columnas / tipos -->
     <div class="tabla-wrapper" *ngIf="columnas?.length">
@@ -62,41 +54,25 @@
       </table>
     </div>
 
-    <!-- Datos actuales -->
+    <!-- Datos actuales con paginación -->
     <div class="tabla-wrapper" *ngIf="filas?.length">
       <table>
         <tbody>
-          <tr *ngFor="let f of filas">
+          <tr *ngFor="let f of filasPaginadas">
             <td *ngFor="let cel of f">{{cel}}</td>
           </tr>
         </tbody>
       </table>
+
+      <div class="paginacion" *ngIf="filas.length > filasPorPagina">
+        <button (click)="cambiarPagina(paginaActual - 1)" [disabled]="paginaActual === 1">Anterior</button>
+
+        <span>Página {{paginaActual}} de {{totalPaginas()}}</span>
+
+        <button (click)="cambiarPagina(paginaActual + 1)" [disabled]="paginaActual === totalPaginas()">Siguiente</button>
+      </div>
     </div>
 
     <button class="close-btn" (click)="cerrarModal()">Cerrar</button>
-  </div>
-</div>
-
-<!-- ============ MODAL INSERT (formulario) ============ -->
-<div class="modal-overlay" *ngIf="mostrarInsert">
-  <div class="modal">
-    <h3>Insertar fila en {{tablaSeleccionada?.table_name}}</h3>
-
-    <div class="tabla-wrapper" *ngIf="nuevaFila?.length">
-      <table>
-        <tr>
-          <td *ngFor="let valor of nuevaFila; let i = index">
-            <input [(ngModel)]="nuevaFila[i]" 
-                   class="input-insert"
-                   placeholder="{{columnas[i]}}" />
-          </td>
-        </tr>
-      </table>
-    </div>
-
-    <div class="modal-actions" style="margin-top:15px;">
-      <button class="modal-btn"  (click)="insertarFila()">Guardar</button>
-      <button class="close-btn" (click)="cerrarInsert()">Cancelar</button>
-    </div>
   </div>
 </div>

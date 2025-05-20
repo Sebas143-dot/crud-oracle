@@ -1,0 +1,29 @@
+<nav class="navbar">
+  <div class="navbar-left">
+    <div class="roles" *ngIf="roles.length > 0">
+      <span *ngFor="let rol of roles" class="role-badge">{{rol}}</span>
+    </div>
+  </div>
+
+  <div class="navbar-right">
+    <span class="usuario" *ngIf="nombreUsuario">Hola, {{nombreUsuario}}</span>
+
+    <button class="btn-privilegios" (click)="togglePrivilegios()" [attr.aria-expanded]="mostrarPrivilegios" aria-haspopup="true">
+      Privilegios ▼
+    </button>
+
+    <div class="dropdown-privilegios" *ngIf="mostrarPrivilegios">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Privilegio</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of privilegios; let i = index">
+            <td>{{i + 1}}</td>
+            <td>{{p}}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</nav>

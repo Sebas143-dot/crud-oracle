@@ -1,7 +1,10 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule }  from '@angular/common';
-import { FormsModule }   from '@angular/forms';
-import { Router }        from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+
+// Importa NavbarComponent, ajusta la ruta según tu estructura de carpetas
+import { NavbarComponent } from '../navbar/navbar.component';
 
 import {
   AuthService,
@@ -10,89 +13,77 @@ import {
   TiposTablaResponse
 } from '../services/auth.service';
 
-/* ----------------------------------------------------------- */
-/*  Stand-alone component                                     */
-/* ----------------------------------------------------------- */
 @Component({
-  selector    : 'app-dashboard',
-  standalone  : true,
-  imports     : [CommonModule, FormsModule],
-  templateUrl : './dashboard.component.html',
-  styleUrls   : ['./dashboard.component.css']
+  selector: 'app-dashboard',
+  standalone: true,
+  imports: [CommonModule, FormsModule, NavbarComponent], // Incluye NavbarComponent aquí
+  templateUrl: './dashboard.component.html',
+  styleUrls: ['./dashboard.component.css']
 })
 export class DashboardComponent implements OnInit {
 
-  /* ---------- estado general ---------- */
   tablas: any[] = [];
   error = '';
 
-  /* ---------- estado modales ---------- */
-  mostrarModal  = false;   // modal principal (datos, acciones)
-  mostrarInsert = false;   // modal de inserción
+  mostrarModal = false;
+  modalVisible = false;  // Para animación modal
+  mostrarInsert = false;
 
-  /* ---------- tabla seleccionada ---------- */
   tablaSeleccionada: any = null;
 
-  columnas : string[] = [];
-  filas    : any[][]  = [];
+  columnas: string[] = [];
+  filas: any[][] = [];
   atributos: { name: string; type: string }[] = [];
 
-  /* fila que el usuario edita para insertar */
   nuevaFila: string[] = [];
 
-  /* ---------- ctor ---------- */
-  constructor(private auth: AuthService,
-              private router: Router) {}
+  paginaActual = 1;
+  filasPorPagina = 10;
 
-  /* ========================================================= */
-  /*  Ciclo de vida                                            */
-  /* ========================================================= */
+  constructor(private auth: AuthService,
+              private router: Router) { }
+
   ngOnInit(): void {
     this.auth.getTablas().subscribe({
-      next : (r: TablasResponse) => this.tablas = r.result,
-      error: e => this.error = 'Error al obtener tablas: ' +
-                               (e.error?.error || e.message)
+      next: (r: TablasResponse) => this.tablas = r.result,
+      error: e => this.error = 'Error al obtener tablas: ' + (e.error?.error || e.message)
     });
   }
 
-  /* ========================================================= */
-  /*  Logout                                                   */
-  /* ========================================================= */
   logout(): void {
     this.auth.cerrarSesion();
     this.router.navigate(['/login']);
   }
 
-  /* ========================================================= */
-  /*  Abrir modal principal                                    */
-  /* ========================================================= */
   editarTabla(tabla: any): void {
     this.tablaSeleccionada = tabla;
-    this.mostrarModal  = true;
-    this.mostrarInsert = false;
+    this.mostrarModal = true;
 
-    /* limpiar estado */
-    this.columnas  = [];
-    this.filas     = [];
+    setTimeout(() => {
+      this.modalVisible = true;
+    }, 10);
+
+    this.mostrarInsert = false;
+    this.columnas = [];
+    this.filas = [];
     this.atributos = [];
     this.nuevaFila = [];
+    this.paginaActual = 1;
 
-    /* -------- obtener datos (si tiene SELECT) -------- */
     if (tabla.privileges.select) {
       this.auth.obtenerDatosTabla(tabla.owner, tabla.table_name)
         .subscribe({
-          next : (r: DatosTablaResponse) => {
-            this.filas    = r.data ?? [];
+          next: (r: DatosTablaResponse) => {
+            this.filas = r.data ?? [];
             this.columnas = r.columns.map(c => (c as any).name ?? c);
             this.nuevaFila = Array(this.columnas.length).fill('');
           },
           error: () => this.error = 'No se pudieron cargar los datos.'
         });
 
-      /* -------- obtener tipos de columnas -------- */
       this.auth.getTiposDeTabla(tabla.owner, tabla.table_name)
         .subscribe({
-          next : (r: TiposTablaResponse) => {
+          next: (r: TiposTablaResponse) => {
             this.atributos = r.columns.map(col => ({
               name: col.name,
               type: col.type || 'VARCHAR'
@@ -103,38 +94,48 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  /* ========================================================= */
-  /*  Cerrar modal principal                                   */
-  /* ========================================================= */
   cerrarModal(): void {
-    this.mostrarModal  = false;
-    this.mostrarInsert = false;
-    this.tablaSeleccionada = null;
-
-    this.columnas = [];
-    this.filas    = [];
-    this.atributos= [];
-    this.nuevaFila= [];
+    this.modalVisible = false;
+    setTimeout(() => {
+      this.mostrarModal = false;
+      this.tablaSeleccionada = null;
+      this.columnas = [];
+      this.filas = [];
+      this.atributos = [];
+      this.nuevaFila = [];
+      this.paginaActual = 1;
+    }, 300);
   }
 
-  /* ========================================================= */
-  /*  Abrir / cerrar modal de inserción                        */
-  /* ========================================================= */
+  get filasPaginadas() {
+    const start = (this.paginaActual - 1) * this.filasPorPagina;
+    return this.filas.slice(start, start + this.filasPorPagina);
+  }
+
+  totalPaginas(): number {
+    return Math.ceil(this.filas.length / this.filasPorPagina);
+  }
+
+  cambiarPagina(n: number): void {
+    if (n >= 1 && n <= this.totalPaginas()) {
+      this.paginaActual = n;
+    }
+  }
+
   abrirInsert(): void {
     if (this.tablaSeleccionada?.privileges.insert) {
-      this.nuevaFila   = Array(this.columnas.length).fill('');
+      this.nuevaFila = Array(this.columnas.length).fill('');
       this.mostrarInsert = true;
     }
   }
-  cerrarInsert(): void { this.mostrarInsert = false; }
 
-  /* ========================================================= */
-  /*  Insertar fila                                            */
-  /* ========================================================= */
+  cerrarInsert(): void {
+    this.mostrarInsert = false;
+  }
+
   insertarFila(): void {
     if (!this.tablaSeleccionada) { return; }
 
-    /** mapeo de valores al tipo adecuado */
     const filaConvertida = this.nuevaFila.map((v, i) => {
       const tipo = (this.atributos[i]?.type || '').toUpperCase();
       if (v === '' || v === null) return null;
@@ -147,12 +148,11 @@ export class DashboardComponent implements OnInit {
       this.tablaSeleccionada.owner,
       this.tablaSeleccionada.table_name,
       this.columnas,
-      [filaConvertida]            // backend espera array de filas
+      [filaConvertida]
     ).subscribe({
-      next : () => {
+      next: () => {
         alert('Fila insertada');
 
-        /* refrescar datos si el usuario tiene SELECT, para que vea la fila nueva */
         if (this.tablaSeleccionada.privileges.select) {
           this.editarTabla(this.tablaSeleccionada);
         } else {
@@ -163,9 +163,6 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  /* ========================================================= */
-  /*  Util: obtener tipo para cabecera                         */
-  /* ========================================================= */
   obtenerTipoDato(nombreColumna: string): string {
     const a = this.atributos.find(x => x.name === nombreColumna);
     return a ? a.type : 'Desconocido';
