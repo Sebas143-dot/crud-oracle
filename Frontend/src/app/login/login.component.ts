@@ -17,7 +17,6 @@ export class LoginComponent implements OnInit, AfterViewInit {
   constructor(private authService: AuthService, private router: Router) { }
 
   ngOnInit(): void {
-    this.checkSavedCredentials();
   }
 
   ngAfterViewInit(): void {
@@ -27,7 +26,6 @@ export class LoginComponent implements OnInit, AfterViewInit {
     const emailError = document.getElementById('emailError') as HTMLElement;
     const passwordError = document.getElementById('passwordError') as HTMLElement;
     const togglePassword = document.getElementById('togglePassword') as HTMLElement;
-    const rememberMeCheckbox = document.getElementById('rememberMe') as HTMLInputElement;
 
     togglePassword.addEventListener('click', () => {
       if (passwordInput.type === 'password') {
@@ -67,12 +65,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
         this.user = userInput.value;
         this.password = passwordInput.value;
 
-        if (rememberMeCheckbox.checked) {
-          this.saveCredentials(this.user, this.password);
-        } else {
-          localStorage.removeItem('savedEmail');
-          localStorage.removeItem('savedPassword');
-        }
+        // Eliminadas referencias a rememberMe
 
         this.realLogin();
       }
@@ -131,27 +124,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
     }, { once: true });
   }
 
-  saveCredentials(user: string, password: string): void {
-    localStorage.setItem('savedEmail', user);
-    localStorage.setItem('savedPassword', password);
-    localStorage.setItem('rememberMe', 'true');
-  }
-
-  checkSavedCredentials(): void {
-    const emailInput = document.getElementById('email') as HTMLInputElement;
-    const passwordInput = document.getElementById('password') as HTMLInputElement;
-    const rememberMeCheckbox = document.getElementById('rememberMe') as HTMLInputElement;
-
-    const savedEmail = localStorage.getItem('savedEmail');
-    const savedPassword = localStorage.getItem('savedPassword');
-    const remembered = localStorage.getItem('rememberMe');
-
-    if (savedEmail && savedPassword && remembered) {
-      emailInput.value = savedEmail;
-      passwordInput.value = savedPassword;
-      rememberMeCheckbox.checked = true;
-    }
-  }
+  // Eliminados métodos relacionados a guardar/checkear credenciales
 
   realLogin(): void {
     const loginBtn = document.querySelector('.login-btn') as HTMLButtonElement;
