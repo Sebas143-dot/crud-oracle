@@ -4,13 +4,13 @@
   </div>
 
   <div class="navbar-center">
-    <!-- Si quieres dejarlo vacío o con algo más, aquí -->
   </div>
 
   <div class="navbar-right">
     <span class="saludo-usuario">Hola, {{ nombreUsuario }}</span>
 
-    <button class="btn-privilegios" (click)="togglePrivilegios()" aria-haspopup="true" [attr.aria-expanded]="mostrarPrivilegios">
+    <button class="btn-privilegios" (click)="togglePrivilegios()" aria-haspopup="true" 
+    [attr.aria-expanded]="mostrarPrivilegios">
       Privilegios ▼
     </button>
 

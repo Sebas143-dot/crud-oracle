@@ -15,7 +15,7 @@ import {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, NavbarComponent], // Incluye NavbarComponent aquí
+  imports: [CommonModule, FormsModule, NavbarComponent], 
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
