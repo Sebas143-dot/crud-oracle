@@ -21,15 +21,12 @@ export class NavbarComponent implements OnInit {
   constructor(private auth: AuthService) {}
 
   ngOnInit(): void {
-    // Suponemos que el token contiene el nombre de usuario, o puedes adaptarlo
     this.nombreUsuario = this.extraerNombreUsuario();
-
     this.cargarRoles();
     this.cargarPrivilegios();
   }
 
   extraerNombreUsuario(): string | null {
-    // Ejemplo simple: el token JWT almacenado en localStorage, decodificarlo
     const token = this.auth.obtenerToken();
     if (!token) return null;
     try {
@@ -62,5 +59,10 @@ export class NavbarComponent implements OnInit {
 
   togglePrivilegios(): void {
     this.mostrarPrivilegios = !this.mostrarPrivilegios;
+  }
+
+  logout(): void {
+    this.auth.cerrarSesion();
+    window.location.href = '/login'; // Ajusta esta ruta según tu configuración de rutas
   }
 }

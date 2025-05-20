@@ -1,84 +1,87 @@
 .navbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(to right, #667eea, #764ba2);
+  background-color: #667eea;
   padding: 10px 20px;
   color: white;
   font-family: 'Roboto', sans-serif;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(102, 126, 234, 0.5);
   position: relative;
-  user-select: none;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
-.navbar-left,
-.navbar-center,
-.navbar-right {
-  display: flex;
-  align-items: center;
-}
-
-.navbar-center {
-  flex-grow: 1;
-  justify-content: center;
-}
-
-.app-title {
-  margin: 0;
-  font-weight: 700;
-  font-size: 1.4rem;
-}
-
-.roles {
-  display: flex;
-  gap: 10px;
-}
-
-.role-badge {
-  background-color: rgba(255,255,255,0.2);
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.9rem;
+/* Izquierda: nombre usuario */
+.navbar-left {
+  flex: 0 0 auto; /* no crece */
   font-weight: 600;
+  font-size: 14px;
+  user-select: none;
   white-space: nowrap;
 }
 
-.usuario {
-  margin-right: 20px;
-  font-weight: 600;
-  font-size: 1rem;
+/* Centro: roles */
+.navbar-center {
+  flex-grow: 1; /* ocupa todo el espacio central */
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.btn-privilegios {
-  background-color: #4c51bf;
+.role-badge {
+  background-color: #8193f5;
+  padding: 5px 12px;
+  border-radius: 15px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Derecha: botones */
+.navbar-right {
+  flex: 0 0 auto; /* no crece */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative; /* para dropdown */
+}
+
+.btn-privilegios, .logout-btn {
+  background-color: #4a61d9;
   border: none;
+  color: white;
   padding: 8px 15px;
   border-radius: 8px;
-  color: white;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.3s ease;
-  position: relative;
+}
+
+.logout-btn {
+  background-color: #f44336;
 }
 
 .btn-privilegios:hover {
-  background-color: #3b3f99;
+  background-color: #3b4ea3;
 }
 
+.logout-btn:hover {
+  background-color: #d32f2f;
+}
+
+/* Dropdown privilegios */
 .dropdown-privilegios {
   position: absolute;
-  right: 10px;
-  top: 100%;
-  margin-top: 8px;
+  top: 45px;
+  right: 0;
   background: white;
   color: #333;
   border-radius: 8px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-  overflow: auto;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
   max-height: 200px;
+  overflow-y: auto;
   width: 220px;
-  z-index: 2000;
-  font-size: 0.9rem;
+  z-index: 1000;
+  font-size: 14px;
 }
 
 .dropdown-privilegios table {
@@ -90,15 +93,10 @@
 .dropdown-privilegios td {
   padding: 8px 12px;
   border-bottom: 1px solid #ddd;
-}
-
-.dropdown-privilegios th {
-  background-color: #f1f1f1;
-  font-weight: 700;
   text-align: left;
 }
 
-.dropdown-privilegios tbody tr:hover {
-  background-color: #e6e6ff;
-  cursor: default;
+.dropdown-privilegios th {
+  background-color: #f0f0f0;
+  font-weight: 700;
 }
