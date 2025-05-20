@@ -1,13 +1,15 @@
 <nav class="navbar">
   <div class="navbar-left">
-    <span class="nombre-usuario">{{ nombreUsuario }}</span>
-  </div>
-
-  <div class="navbar-center">
     <span *ngFor="let rol of roles" class="role-badge">{{ rol }}</span>
   </div>
 
+  <div class="navbar-center">
+    <!-- Si quieres dejarlo vacío o con algo más, aquí -->
+  </div>
+
   <div class="navbar-right">
+    <span class="saludo-usuario">Hola, {{ nombreUsuario }}</span>
+
     <button class="btn-privilegios" (click)="togglePrivilegios()" aria-haspopup="true" [attr.aria-expanded]="mostrarPrivilegios">
       Privilegios ▼
     </button>

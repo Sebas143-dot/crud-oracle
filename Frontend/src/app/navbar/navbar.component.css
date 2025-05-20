@@ -1,3 +1,4 @@
+/* Contenedor principal del navbar */
 .navbar {
   display: flex;
   align-items: center;
@@ -7,10 +8,10 @@
   font-family: 'Roboto', sans-serif;
   border-radius: 8px;
   box-shadow: 0 4px 10px rgba(102, 126, 234, 0.5);
-  position: relative;
+  position: relative; /* necesario para posicionar dropdown */
 }
 
-/* Izquierda: nombre usuario */
+/* Izquierda: nombre de usuario */
 .navbar-left {
   flex: 0 0 auto; /* no crece */
   font-weight: 600;
@@ -19,7 +20,7 @@
   white-space: nowrap;
 }
 
-/* Centro: roles */
+/* Centro: roles del usuario */
 .navbar-center {
   flex-grow: 1; /* ocupa todo el espacio central */
   display: flex;
@@ -36,7 +37,7 @@
   font-weight: 600;
 }
 
-/* Derecha: botones */
+/* Derecha: botones y saludo */
 .navbar-right {
   flex: 0 0 auto; /* no crece */
   display: flex;
@@ -45,6 +46,7 @@
   position: relative; /* para dropdown */
 }
 
+/* Botón de privilegios y cerrar sesión */
 .btn-privilegios, .logout-btn {
   background-color: #4a61d9;
   border: none;
@@ -54,6 +56,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  white-space: nowrap;
 }
 
 .logout-btn {
@@ -68,7 +71,16 @@
   background-color: #d32f2f;
 }
 
-/* Dropdown privilegios */
+/* Texto de saludo junto al botón de privilegios */
+.saludo-usuario {
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Dropdown de privilegios */
 .dropdown-privilegios {
   position: absolute;
   top: 45px;

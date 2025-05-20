@@ -55,6 +55,11 @@ export class DashboardComponent implements OnInit {
   }
 
   editarTabla(tabla: any): void {
+    this.error = '';
+    if (!tabla.privileges.select) {
+      this.error = `No tienes privilegio SELECT para la tabla ${tabla.table_name}. No puedes ver sus datos.`;
+      return;
+    }
     this.tablaSeleccionada = tabla;
     this.mostrarModal = true;
 
