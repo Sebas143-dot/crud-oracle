@@ -47,7 +47,7 @@
 }
 
 /* Botón de privilegios y cerrar sesión */
-.btn-privilegios, .logout-btn {
+.btn-privilegios, .logout-btn, .btn-comando {
   background-color: #4a61d9;
   border: none;
   color: white;
@@ -63,7 +63,7 @@
   background-color: #f44336;
 }
 
-.btn-privilegios:hover {
+.btn-privilegios:hover, .btn-comando:hover {
   background-color: #3b4ea3;
 }
 
@@ -111,4 +111,85 @@
 .dropdown-privilegios th {
   background-color: #f0f0f0;
   font-weight: 700;
+}
+
+/* Estilo para el nuevo botón "Ejecutar Comando" */
+.btn-comando {
+  background-color: #4a61d9;
+  border: none;
+  color: white;
+  padding: 8px 15px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-comando:hover {
+  background-color: #3b4ea3;
+}
+
+/* Contenedor del textarea para comandos SQL */
+.comando-container {
+  position: absolute;
+  top: 55px;
+  right: 0;
+  background-color: white;
+  padding: 15px;
+  width: 500px;  /* Aumentamos el ancho */
+  height: auto;  /* Ajustamos la altura automáticamente según el contenido */
+  max-height: 400px;  /* Limita la altura máxima */
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+}
+
+.comando-container textarea {
+  width: 100%;
+  height: 300px;
+  padding: 12px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-family: 'Roboto', sans-serif;
+  resize: none;
+  transition: all 0.3s ease;
+}
+
+/* Estilo de enfoque para el textarea */
+.comando-container textarea:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  outline: none;
+}
+
+/* Estilo para el botón de ejecutar comando */
+.comando-container button {
+  background-color: #4a61d9;
+  border: none;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.comando-container button:hover {
+  background-color: #3b4ea3;
+}
+
+/* Estilo para mostrar el resultado del comando ejecutado */
+.comando-container pre {
+  margin-top: 10px;
+  background-color: #f0f0f0;
+  padding: 10px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 14px;
+  color: #333;
 }
