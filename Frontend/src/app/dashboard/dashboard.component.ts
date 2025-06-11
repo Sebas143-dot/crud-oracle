@@ -1,9 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Subscription } from 'rxjs'; // NUEVA IMPORTACIÓN
 
 import { NavbarComponent } from '../navbar/navbar.component';
+import { LayoutControlService } from '../services/layout-control.service'; // NUEVA IMPORTACIÓN
 
 import {
   AuthService,
@@ -19,13 +21,13 @@ import {
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy { // OnDestroy agregado
 
   tablas: any[] = [];
   error = '';
 
   mostrarModal = false;
-  modalVisible = false;  // Para animación modal
+  modalVisible = false;
   mostrarInsert = false;
 
   tablaSeleccionada: any = null;
@@ -39,14 +41,64 @@ export class DashboardComponent implements OnInit {
   paginaActual = 1;
   filasPorPagina = 10;
 
-  constructor(private auth: AuthService,
-              private router: Router) { }
+  // NUEVAS PROPIEDADES PARA EL LAYOUT DIVIDIDO
+  showSqlPanel = false;
+  currentSqlCommand = '';
+  sqlResult: string | null = null;
+  private subscription: Subscription = new Subscription();
+
+  constructor(
+    private auth: AuthService,
+    private router: Router,
+    private layoutService: LayoutControlService // NUEVA INYECCIÓN
+  ) { }
 
   ngOnInit(): void {
     this.auth.getTablas().subscribe({
       next: (r: TablasResponse) => this.tablas = r.result,
       error: e => this.error = 'Error al obtener tablas: ' + (e.error?.error || e.message)
     });
+
+    // SUSCRIBIRSE A LOS CAMBIOS DEL LAYOUT
+    this.subscription.add(
+      this.layoutService.showSqlPanel$.subscribe(show => {
+        this.showSqlPanel = show;
+      })
+    );
+
+    this.subscription.add(
+      this.layoutService.sqlCommand$.subscribe(command => {
+        this.currentSqlCommand = command;
+      })
+    );
+  }
+
+  // MÉTODO PARA LIMPIAR SUSCRIPCIONES
+  ngOnDestroy(): void {
+    this.subscription.unsubscribe();
+  }
+
+  // NUEVOS MÉTODOS PARA MANEJO DEL PANEL SQL
+  ejecutarComandoSQL(): void {
+    if (this.currentSqlCommand.trim()) {
+      this.auth.ejecutarComandoSQL(this.currentSqlCommand).subscribe({
+        next: (res) => {
+          this.sqlResult = res.resultado;
+        },
+        error: (e) => {
+          this.sqlResult = 'Error: ' + (e.error?.error || e.message);
+        }
+      });
+    }
+  }
+
+  cerrarPanelSQL(): void {
+    this.layoutService.hideSqlPanel();
+    this.sqlResult = null;
+  }
+
+  onSqlCommandChange(): void {
+    this.layoutService.updateSqlCommand(this.currentSqlCommand);
   }
 
   logout(): void {

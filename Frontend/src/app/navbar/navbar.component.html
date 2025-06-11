@@ -16,7 +16,7 @@
 
     <button class="btn-comando" (click)="toggleComando()" aria-haspopup="true" 
     [attr.aria-expanded]="mostrarComando">
-      Ejecutar Comando ▼
+      Ejecutar Comando
     </button>
 
     <button class="logout-btn" (click)="logout()">
@@ -39,13 +39,6 @@
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <!-- Comando SQL -->
-    <div *ngIf="mostrarComando" class="comando-container">
-      <textarea [(ngModel)]="comando" placeholder="Escribe tu comando SQL"></textarea>
-      <button (click)="ejecutarComando()">Ejecutar</button>
-      <pre *ngIf="resultadoComando">{{ resultadoComando }}</pre>
     </div>
   </div>
 </nav>

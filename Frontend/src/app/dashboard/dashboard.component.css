@@ -21,6 +21,191 @@ body {
   padding: 20px;
 }
 
+/* ============ LAYOUT DIVIDIDO - NUEVOS ESTILOS ============ */
+.main-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  gap: 20px;
+  transition: all 0.3s ease;
+}
+
+.main-container.split-layout {
+  max-width: 100%;
+  padding: 0 20px;
+}
+
+.left-panel {
+  flex: 1;
+  transition: all 0.3s ease;
+}
+
+.left-panel.collapsed {
+  flex: 0 0 45%;
+}
+
+.right-panel {
+  flex: 0 0 50%;
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Panel SQL */
+.sql-panel {
+  background-color: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  height: calc(100vh - 140px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px;
+  border-bottom: 2px solid #f0f0f0;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.close-panel-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-panel-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.sql-editor {
+  padding: 25px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.sql-editor label {
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #333;
+  font-size: 14px;
+}
+
+.sql-editor textarea {
+  width: 100%;
+  flex: 1;
+  min-height: 200px;
+  padding: 15px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  transition: all 0.3s ease;
+  background-color: #fafbfc;
+}
+
+.sql-editor textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background-color: white;
+}
+
+.execute-btn {
+  margin-top: 15px;
+  padding: 12px 25px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.execute-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6fd6, #6a429a);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.execute-btn:disabled {
+  background: #a3b1ff;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.sql-result {
+  padding: 25px;
+  border-top: 2px solid #f0f0f0;
+  background-color: #fafbfc;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.sql-result h4 {
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.sql-result pre {
+  background-color: white;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #e1e5e9;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: #333;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ============ ESTILOS ORIGINALES ADAPTADOS ============ */
 .container {
   width: 100%;
   max-width: 1000px;
@@ -28,6 +213,12 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+/* Adaptación para layout dividido */
+.split-layout .container {
+  max-width: none;
+  margin: 0;
 }
 
 .dashboard-container {
@@ -42,6 +233,12 @@ body {
   align-items: center;
 }
 
+/* Adaptación del dashboard para layout dividido */
+.split-layout .dashboard-container {
+  height: calc(100vh - 140px);
+  overflow-y: auto;
+}
+
 .dashboard-title {
   text-align: center;
   margin-bottom: 30px;
@@ -51,12 +248,24 @@ body {
   width: 100%;
 }
 
+/* Adaptación del título para layout dividido */
+.split-layout .dashboard-title {
+  font-size: 22px;
+  margin-bottom: 20px;
+}
+
 .cards-container {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 20px;
   margin-bottom: 30px;
   width: 100%;
+}
+
+/* Adaptación de cards para layout dividido */
+.split-layout .cards-container {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 15px;
 }
 
 .tabla-card {
@@ -336,4 +545,42 @@ th .tipo-dato {
 
 .paginacion button:hover:not(:disabled) {
   background-color: #5a6fd6;
+}
+
+/* ============ RESPONSIVE DESIGN ============ */
+@media (max-width: 1200px) {
+  .main-container.split-layout {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .left-panel.collapsed {
+    flex: 1;
+  }
+  
+  .right-panel {
+    flex: none;
+  }
+  
+  .sql-panel {
+    height: 500px;
+  }
+}
+
+@media (max-width: 768px) {
+  .split-layout .cards-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .sql-panel {
+    height: 400px;
+  }
+  
+  .panel-header {
+    padding: 15px 20px;
+  }
+  
+  .sql-editor {
+    padding: 20px;
+  }
 }

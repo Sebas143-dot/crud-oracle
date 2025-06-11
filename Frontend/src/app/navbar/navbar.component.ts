@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../services/auth.service';
+import { LayoutControlService } from '../services/layout-control.service'; // NUEVA IMPORTACIÓN
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 
@@ -22,7 +23,10 @@ export class NavbarComponent implements OnInit {
   resultadoComando: string | null = null;
   error = '';
 
-  constructor(private auth: AuthService) {}
+  constructor(
+    private auth: AuthService,
+    private layoutService: LayoutControlService // NUEVA INYECCIÓN
+  ) {}
 
   ngOnInit(): void {
     this.nombreUsuario = this.extraerNombreUsuario();
@@ -65,12 +69,23 @@ export class NavbarComponent implements OnInit {
     this.mostrarPrivilegios = !this.mostrarPrivilegios;
   }
 
+  // MÉTODO MODIFICADO
   toggleComando(): void {
     this.mostrarComando = !this.mostrarComando;
+    
+    // Si se abre el comando, activar panel en dashboard
+    if (this.mostrarComando) {
+      this.layoutService.activatesSqlPanel(this.comando);
+    }
   }
 
+  // MÉTODO MODIFICADO
   ejecutarComando(): void {
     if (this.comando.trim()) {
+      // Cerrar dropdown del navbar y activar panel en dashboard
+      this.mostrarComando = false;
+      this.layoutService.activatesSqlPanel(this.comando);
+      
       this.auth.ejecutarComandoSQL(this.comando).subscribe({
         next: (res) => this.resultadoComando = res.resultado,
         error: (e: HttpErrorResponse) => {
@@ -85,6 +100,6 @@ export class NavbarComponent implements OnInit {
 
   logout(): void {
     this.auth.cerrarSesion();
-    window.location.href = '/login'; // Ajusta esta ruta según tu configuración de rutas
+    window.location.href = '/login';
   }
 }
