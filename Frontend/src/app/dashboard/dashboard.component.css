@@ -37,8 +37,10 @@ body {
 }
 
 .left-panel {
-  flex: 1;
+  flex: 1; /* Esto permite que el panel de tablas ocupe la mitad del contenedor principal */
+  padding: 20px; /* Añadir espacio dentro del contenedor */
   transition: all 0.3s ease;
+  height: calc(110vh - 140px); /* Ajustar la altura si es necesario */
 }
 
 .left-panel.collapsed {
@@ -66,7 +68,9 @@ body {
   background-color: white;
   border-radius: 16px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-  height: calc(100vh - 140px);
+  height: calc(110vh - 140px); /* Ajusta la altura según lo que necesites */
+  width: 110%; /* Cambia el ancho si lo deseas */
+  max-width: 1000px; /* Ancho máximo */
   display: flex;
   flex-direction: column;
   overflow: hidden;
