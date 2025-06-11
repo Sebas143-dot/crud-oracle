@@ -396,4 +396,60 @@ api.delete('/tabla', verificar, async (req, res) => {
     }
 });
 
+api.post('/script/ejecutar-personalizado', async (req, res) => {
+    try {
+        const connection = await oracledb.getConnection({
+            user: req.user,
+            password: req.password,
+            connectString: process.env.ORACLE_CONNECT_STRING
+        });
+
+        const result = await connection.execute(req.body.query);
+
+        await connection.close();
+
+        // Si la conexión es exitosa, se genera un token
+        console.log(`El usuario ${req.user} ejecutó la siguiente consulta\n${req.body.query}\n`);
+
+        res.json({
+            result: result.rows.map(row => row[0])
+        });
+    } catch (err) {
+        // Manejo simple por código de error
+        console.error('Error al ejecutar la query:\n', err);
+        res.status(500).json({
+            error: 'Error al ejecutar la query',
+            details: err.message
+        });
+    }
+})
+
+api.post('/script/ejecutar-personalizado', async (req, res) => {
+    try {
+        const connection = await oracledb.getConnection({
+            user: req.user,
+            password: req.password,
+            connectString: process.env.ORACLE_CONNECT_STRING
+        });
+
+        const result = await connection.execute(req.body.query);
+
+        await connection.close();
+
+        // Si la conexión es exitosa, se genera un token
+        console.log(`El usuario ${req.user} ejecutó la siguiente consulta\n${req.body.query}\n`);
+
+        res.json({
+            result: result.rows.map(row => row[0])
+        });
+    } catch (err) {
+        // Manejo simple por código de error
+        console.error('Error al ejecutar la query:\n', err);
+        res.status(500).json({
+            error: 'Error al ejecutar la query',
+            details: err.message
+        });
+    }
+})
+
 module.exports = api;
