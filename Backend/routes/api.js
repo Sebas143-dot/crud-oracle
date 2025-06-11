@@ -396,7 +396,7 @@ api.delete('/tabla', verificar, async (req, res) => {
     }
 });
 
-api.post('/script/ejecutar-personalizado', async (req, res) => {
+api.post('/script/ejecutar-personalizado', verificar, async (req, res) => {
     try {
         const connection = await oracledb.getConnection({
             user: req.user,
@@ -404,18 +404,55 @@ api.post('/script/ejecutar-personalizado', async (req, res) => {
             connectString: process.env.ORACLE_CONNECT_STRING
         });
 
-        const result = await connection.execute(req.body.query);
+        const query = req.body.query.trim();
 
-        await connection.close();
+        // Detectar si es PL/SQL (contiene DECLARE, BEGIN, o bloques)
+        const isPLSQL = /^(DECLARE|BEGIN)\s/i.test(query) ||
+            /BEGIN\s[\s\S]*END\s*;?\s*$/i.test(query);
 
-        // Si la conexión es exitosa, se genera un token
-        console.log(`El usuario ${req.user} ejecutó la siguiente consulta\n${req.body.query}\n`);
+        if (isPLSQL) {
+            // Configurar SERVEROUTPUT para PL/SQL
+            await connection.execute(`BEGIN DBMS_OUTPUT.ENABLE(1000000); END;`);
 
-        res.json({
-            result: result.rows.map(row => row[0])
-        });
+            // Ejecutar el script PL/SQL
+            await connection.execute(query);
+
+            // Recuperar el output de DBMS_OUTPUT
+            const result = await connection.execute(`
+                DECLARE
+                    lines DBMS_OUTPUT.CHARARR;
+                    num_lines INTEGER := 1000;
+                BEGIN
+                    DBMS_OUTPUT.GET_LINES(lines, num_lines);
+                    FOR i IN 1..num_lines LOOP
+                        IF lines(i) IS NOT NULL THEN
+                            :output := :output || lines(i) || CHR(10);
+                        END IF;
+                    END LOOP;
+                END;
+            `, { output: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000 } });
+
+            await connection.close();
+
+            console.log(`El usuario ${req.user} ejecutó el siguiente script PL/SQL\n${query}\n`); res.json({
+                message: 'Script PL/SQL ejecutado correctamente',
+                output: result.outBinds.output || 'No hay output'
+            });
+        } else {
+            // Ejecutar como consulta SQL normal
+            const result = await connection.execute(query);
+
+            await connection.close();
+
+            console.log(`El usuario ${req.user} ejecutó la siguiente consulta SQL\n${query}\n`);
+
+            res.json({
+                message: 'Consulta SQL ejecutada correctamente',
+                result: result.rows || [],
+                columns: result.metaData ? result.metaData.map(col => col.name) : []
+            });
+        }
     } catch (err) {
-        // Manejo simple por código de error
         console.error('Error al ejecutar la query:\n', err);
         res.status(500).json({
             error: 'Error al ejecutar la query',
@@ -424,32 +461,238 @@ api.post('/script/ejecutar-personalizado', async (req, res) => {
     }
 })
 
-api.post('/script/ejecutar-personalizado', async (req, res) => {
+api.get('/script/tiempo', verificar, async (req, res) => {
     try {
         const connection = await oracledb.getConnection({
             user: req.user,
             password: req.password,
             connectString: process.env.ORACLE_CONNECT_STRING
-        });
+        });        // Configurar SERVEROUTPUT
+        await connection.execute(`BEGIN DBMS_OUTPUT.ENABLE(1000000); END;`);
 
-        const result = await connection.execute(req.body.query);
+        // Ejecutar el script principal
+        await connection.execute(`
+            DECLARE
+                -- Variables principales para fechas
+                v_fecha DATE := TO_DATE('2025-06-11', 'YYYY-MM-DD');
+                v_proximo_dia DATE;
+                v_dia_anterior DATE;
+                v_anio NUMBER(4);
+                v_anio_anterior NUMBER(4);
+                v_anio_siguiente NUMBER(4);
+                v_bisiesto VARCHAR2(3) := 'No';
 
-        await connection.close();
+                -- Variables para tipos de datos
+                v_char         CHAR(10) := 'TextoA';
+                v_varchar2     VARCHAR2(20) := 'Texto B';
+                v_number       NUMBER(10,2) := 12345.67;
+                v_integer      BINARY_INTEGER := -100;
+                v_date         DATE := TO_DATE('2025-06-11 10:30:00', 'YYYY-MM-DD HH24:MI:SS');
+                v_timestamp    TIMESTAMP := SYSTIMESTAMP;
+                v_tz           TIMESTAMP WITH TIME ZONE := FROM_TZ(TIMESTAMP '2025-06-11 10:30:00', 'UTC');
+                v_ltz          TIMESTAMP WITH LOCAL TIME ZONE := SYSTIMESTAMP;
+                v_interval_ym  INTERVAL YEAR(2) TO MONTH := INTERVAL '02-06' YEAR TO MONTH;
+                v_interval_ds  INTERVAL DAY(2) TO SECOND(6) := INTERVAL '05 12:30:45.123456' DAY TO SECOND;
+            BEGIN
+                -- SECCIÓN 1: OPERACIONES CON FECHAS
+                DBMS_OUTPUT.PUT_LINE('================================================================================');
+                DBMS_OUTPUT.PUT_LINE('                           OPERACIONES CON FECHAS');
+                DBMS_OUTPUT.PUT_LINE('================================================================================');
+                
+                -- Cálculo de próximos y anteriores días
+                v_proximo_dia   := v_fecha + 1;
+                v_dia_anterior  := v_fecha - 1;
 
-        // Si la conexión es exitosa, se genera un token
-        console.log(`El usuario ${req.user} ejecutó la siguiente consulta\n${req.body.query}\n`);
+                -- Extracción del año y cálculo de año anterior y siguiente
+                v_anio          := EXTRACT(YEAR FROM v_fecha);
+                v_anio_anterior := v_anio - 1;
+                v_anio_siguiente := v_anio + 1;
 
-        res.json({
-            result: result.rows.map(row => row[0])
+                -- Comprobación de año bisiesto
+                IF MOD(v_anio, 4) = 0 AND (MOD(v_anio, 100) != 0 OR MOD(v_anio, 400) = 0) THEN
+                    v_bisiesto := 'Sí';
+                END IF;
+
+                -- Mostrar resultados de fechas
+                DBMS_OUTPUT.PUT_LINE('Fecha original:         ' || TO_CHAR(v_fecha, 'YYYY-MM-DD'));
+                DBMS_OUTPUT.PUT_LINE('Día anterior:           ' || TO_CHAR(v_dia_anterior, 'YYYY-MM-DD'));
+                DBMS_OUTPUT.PUT_LINE('Próximo día:            ' || TO_CHAR(v_proximo_dia, 'YYYY-MM-DD'));
+                DBMS_OUTPUT.PUT_LINE('Año actual:             ' || v_anio);
+                DBMS_OUTPUT.PUT_LINE('Año anterior:           ' || v_anio_anterior);
+                DBMS_OUTPUT.PUT_LINE('Año siguiente:          ' || v_anio_siguiente);
+                DBMS_OUTPUT.PUT_LINE('¿Es bisiesto?:          ' || v_bisiesto);
+
+                -- Otras operaciones comunes con fechas
+                DBMS_OUTPUT.PUT_LINE('Fecha más 1 semana:     ' || TO_CHAR(v_fecha + 7, 'YYYY-MM-DD'));
+                DBMS_OUTPUT.PUT_LINE('Fecha más 1 mes:        ' || TO_CHAR(ADD_MONTHS(v_fecha, 1), 'YYYY-MM-DD'));
+                DBMS_OUTPUT.PUT_LINE('Fecha más 1 año:        ' || TO_CHAR(ADD_MONTHS(v_fecha, 12), 'YYYY-MM-DD'));
+                DBMS_OUTPUT.PUT_LINE('Último día del mes:     ' || TO_CHAR(LAST_DAY(v_fecha), 'YYYY-MM-DD'));
+
+                -- SECCIÓN 2: TIPOS DE DATOS
+                DBMS_OUTPUT.PUT_LINE('');
+                DBMS_OUTPUT.PUT_LINE('================================================================================');
+                DBMS_OUTPUT.PUT_LINE('                            TIPOS DE DATOS ORACLE');
+                DBMS_OUTPUT.PUT_LINE('================================================================================');
+
+                -- Cabecera de la tabla
+                DBMS_OUTPUT.PUT_LINE(RPAD('TIPO DE DATO', 30) || RPAD('VALOR', 50));
+                DBMS_OUTPUT.PUT_LINE(RPAD('-', 80, '-'));
+
+                -- Datos formateados como tabla
+                DBMS_OUTPUT.PUT_LINE(RPAD('CHAR', 30) || RPAD(v_char, 50));
+                DBMS_OUTPUT.PUT_LINE(RPAD('VARCHAR2', 30) || RPAD(v_varchar2, 50));
+                DBMS_OUTPUT.PUT_LINE(RPAD('NUMBER', 30) || RPAD(TO_CHAR(v_number), 50));
+                DBMS_OUTPUT.PUT_LINE(RPAD('BINARY_INTEGER', 30) || RPAD(TO_CHAR(v_integer), 50));
+                DBMS_OUTPUT.PUT_LINE(RPAD('DATE', 30) || RPAD(TO_CHAR(v_date, 'YYYY-MM-DD HH24:MI:SS'), 50));
+                DBMS_OUTPUT.PUT_LINE(RPAD('TIMESTAMP', 30) || RPAD(TO_CHAR(v_timestamp, 'YYYY-MM-DD HH24:MI:SS.FF'), 50));
+                DBMS_OUTPUT.PUT_LINE(RPAD('TIMESTAMP WITH TIME ZONE', 30) || RPAD(TO_CHAR(v_tz, 'YYYY-MM-DD HH24:MI:SS.FF TZR'), 50));
+                DBMS_OUTPUT.PUT_LINE(RPAD('TIMESTAMP WITH LOCAL TIME ZONE', 30) || RPAD(TO_CHAR(v_ltz, 'YYYY-MM-DD HH24:MI:SS.FF'), 50));
+                DBMS_OUTPUT.PUT_LINE(RPAD('INTERVAL YEAR TO MONTH', 30) || RPAD(TO_CHAR(v_interval_ym), 50));
+                DBMS_OUTPUT.PUT_LINE(RPAD('INTERVAL DAY TO SECOND', 30) || RPAD(TO_CHAR(v_interval_ds), 50));
+
+                -- Línea final
+                DBMS_OUTPUT.PUT_LINE(RPAD('-', 80, '-'));
+                DBMS_OUTPUT.PUT_LINE('');
+                DBMS_OUTPUT.PUT_LINE('================================================================================');
+                DBMS_OUTPUT.PUT_LINE('                              FIN DEL PROGRAMA');
+                DBMS_OUTPUT.PUT_LINE('================================================================================');
+            END;
+        `);
+
+        // Recuperar el output de DBMS_OUTPUT
+        const result = await connection.execute(`
+            DECLARE
+                lines DBMS_OUTPUT.CHARARR;
+                num_lines INTEGER := 1000;
+            BEGIN
+                DBMS_OUTPUT.GET_LINES(lines, num_lines);
+                FOR i IN 1..num_lines LOOP
+                    IF lines(i) IS NOT NULL THEN
+                        :output := :output || lines(i) || CHR(10);
+                    END IF;
+                END LOOP;
+            END;
+        `, { output: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000 } }); await connection.close();
+
+        console.log(`El usuario ${req.user} ejecutó el script combinado de tiempo y tipos de datos`); res.json({
+            message: 'Script ejecutado correctamente',
+            output: result.outBinds.output || 'No hay output'
         });
     } catch (err) {
-        // Manejo simple por código de error
-        console.error('Error al ejecutar la query:\n', err);
+        console.error('Error al ejecutar el script combinado:\n', err);
         res.status(500).json({
-            error: 'Error al ejecutar la query',
+            error: 'Error al ejecutar el script combinado',
             details: err.message
         });
     }
-})
+});
+
+api.get('/script/total-empleados-hr', verificar, async (req, res) => {
+    try {
+        const connection = await oracledb.getConnection({
+            user: req.user,
+            password: req.password,
+            connectString: process.env.ORACLE_CONNECT_STRING
+        });        // Configurar SERVEROUTPUT
+        await connection.execute(`BEGIN DBMS_OUTPUT.ENABLE(1000000); END;`);
+
+        // Ejecutar el script principal
+        await connection.execute(`
+            DECLARE
+                v_total_empleados NUMBER;
+            BEGIN
+                -- Obtener el total de empleados
+                SELECT COUNT(*) INTO v_total_empleados
+                FROM HR.EMPLOYEES;
+
+                -- Mostrar el resultado
+                DBMS_OUTPUT.PUT_LINE('Total de empleados: ' || v_total_empleados);
+            END;
+        `);
+
+        // Recuperar el output de DBMS_OUTPUT
+        const result = await connection.execute(`
+            DECLARE
+                lines DBMS_OUTPUT.CHARARR;
+                num_lines INTEGER := 1000;
+            BEGIN
+                DBMS_OUTPUT.GET_LINES(lines, num_lines);
+                FOR i IN 1..num_lines LOOP
+                    IF lines(i) IS NOT NULL THEN
+                        :output := :output || lines(i) || CHR(10);
+                    END IF;
+                END LOOP;
+            END;
+        `, { output: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000 } });
+
+        await connection.close();
+
+        console.log(`El usuario ${req.user} ejecutó el script de total de empleados HR`); res.json({
+            message: 'Script de total empleados ejecutado correctamente',
+            output: result.outBinds.output || 'No hay output'
+        });
+    } catch (err) {
+        console.error('Error al ejecutar el script de total empleados:\n', err);
+        res.status(500).json({
+            error: 'Error al ejecutar el script de total empleados',
+            details: err.message
+        });
+    }
+});
+
+api.get('/script/fecha-creacion-base', verificar, async (req, res) => {
+    try {
+        const connection = await oracledb.getConnection({
+            user: req.user,
+            password: req.password,
+            connectString: process.env.ORACLE_CONNECT_STRING
+        });        // Configurar SERVEROUTPUT
+        await connection.execute(`BEGIN DBMS_OUTPUT.ENABLE(1000000); END;`);
+
+        // Ejecutar el script principal
+        await connection.execute(`
+            DECLARE
+                v_nombre_bd   VARCHAR2(50);
+                v_fecha_crea  DATE;
+            BEGIN
+                -- Obtener nombre y fecha de creación de la BD
+                SELECT NAME, CREATED INTO v_nombre_bd, v_fecha_crea
+                FROM V$DATABASE;
+
+                -- Mostrar los valores
+                DBMS_OUTPUT.PUT_LINE('Nombre de la base de datos: ' || v_nombre_bd);
+                DBMS_OUTPUT.PUT_LINE('Fecha de creación:          ' || TO_CHAR(v_fecha_crea, 'YYYY-MM-DD HH24:MI:SS'));
+            END;
+        `);
+
+        // Recuperar el output de DBMS_OUTPUT
+        const result = await connection.execute(`
+            DECLARE
+                lines DBMS_OUTPUT.CHARARR;
+                num_lines INTEGER := 1000;
+            BEGIN
+                DBMS_OUTPUT.GET_LINES(lines, num_lines);
+                FOR i IN 1..num_lines LOOP
+                    IF lines(i) IS NOT NULL THEN
+                        :output := :output || lines(i) || CHR(10);
+                    END IF;
+                END LOOP;
+            END;
+        `, { output: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000 } });
+
+        await connection.close();
+
+        console.log(`El usuario ${req.user} ejecutó el script de fecha de creación de la base de datos`); res.json({
+            message: 'Script de fecha de creación ejecutado correctamente',
+            output: result.outBinds.output || 'No hay output'
+        });
+    } catch (err) {
+        console.error('Error al ejecutar el script de fecha de creación:\n', err);
+        res.status(500).json({
+            error: 'Error al ejecutar el script de fecha de creación',
+            details: err.message
+        });
+    }
+});
 
 module.exports = api;
