@@ -80,4 +80,8 @@ export class AuthService {
     return this.http.get<{ result: string[] }>(`${this.apiUrl}/privilegios`, { headers: this.header() });
   }
 
+  /* ========== ejecutar comando SQL ========== */
+  ejecutarComandoSQL(comando: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/ejecutar-comando`, { comando }, { headers: this.header() });
+  }
 }
