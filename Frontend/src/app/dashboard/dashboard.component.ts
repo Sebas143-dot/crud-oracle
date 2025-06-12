@@ -24,11 +24,6 @@ interface PredefinedCommand {
   endpoint: () => any; // Función que ejecuta el comando
 }
 
-// Definición de la interfaz para las filas
-interface Row {
-  [key: string]: any;  // Cada fila tiene claves dinámicas con valores de tipo `any`
-}
-
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -190,7 +185,7 @@ END;`,
   }
 
   // Formatear resultados de consultas SELECT
-  private formatQueryResult(rows: Row[], columns: string[]): string {
+  private formatQueryResult(rows: { [key: string]: any }[], columns: string[]): string {
     if (!rows || rows.length === 0) return 'No hay resultados';
 
     let result = '';
@@ -202,7 +197,7 @@ END;`,
       result += '-'.repeat(columns.join(' | ').length) + '\n';
     }
 
-    rows.forEach((row: Row) => {
+    rows.forEach((row: { [key: string]: any }) => {
       const values = Object.values(row);
       this.resultAsTable.push(values.map(v => v.toString()));
       result += values.join(' | ') + '\n';

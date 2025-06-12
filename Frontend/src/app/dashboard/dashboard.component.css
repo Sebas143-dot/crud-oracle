@@ -460,7 +460,7 @@ body {
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -521,7 +521,6 @@ body {
   max-height: 200px;
   overflow-y: auto; /* Añadir el scroll aquí también si es necesario */
 }
-
 
 /* ============ ESTILOS ORIGINALES ADAPTADOS ============ */
 .container {
@@ -899,8 +898,8 @@ th .tipo-dato {
   }
   
   .sql-panel {
-    padding: 1rem; /* Añadir espacio para pantallas más pequeñas */
-    min-height: 250px; /* Ajustar la altura mínima */
+    padding: 1rem; 
+    min-height: 250px
   }
   
   .panel-header {

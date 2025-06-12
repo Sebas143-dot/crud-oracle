@@ -106,7 +106,7 @@
         </div>
 
         <button class="execute-btn" (click)="ejecutarComandoSQL()"
-          [disabled]="!currentSqlCommand.trim() || isExecutingCommand">
+          [disabled]="!currentSqlCommand.trim() || isExecutingCommand || selectedPredefinedCommand">
           <span *ngIf="!isExecutingCommand">Ejecutar Comando Manual</span>
           <span *ngIf="isExecutingCommand">⏳ Ejecutando...</span>
         </button>
