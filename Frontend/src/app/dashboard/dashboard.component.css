@@ -68,12 +68,12 @@ body {
   background-color: white;
   border-radius: 16px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-  height: calc(110vh - 140px); /* Ajusta la altura según lo que necesites */
-  width: 110%; /* Cambia el ancho si lo deseas */
-  max-width: 1000px; /* Ancho máximo */
+  height: calc(110vh - 140px);
+  width: 110%;
+  max-width: 1000px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: hidden; /* Importante para controlar el scroll interno */
 }
 
 .panel-header {
@@ -425,6 +425,8 @@ body {
   resize: none;
   transition: all 0.3s ease;
   background-color: #fafbfc;
+  overflow-y: auto; /* Scroll vertical para el textarea */
+  overflow-x: auto; /* Scroll horizontal para líneas largas */
 }
 
 .sql-editor textarea:focus {
@@ -870,8 +872,12 @@ th .tipo-dato {
   }
   
   .sql-editor {
-    padding: 20px;
-  }
+  padding: 25px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Importante para flex containers con scroll */
+}
 
   /* Responsive para comandos predefinidos */
   .predefined-actions {

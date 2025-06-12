@@ -59,7 +59,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // NUEVAS PROPIEDADES PARA COMANDOS PREDEFINIDOS
   selectedPredefinedCommand = '';
-  isExecutingCommand = false;
+  isExecutingCommand: boolean = false;
 
   // COMANDOS PREDEFINIDOS DISPONIBLES
   predefinedCommands: PredefinedCommand[] = [
@@ -77,7 +77,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   v_number NUMBER(10,2) := 12345.67;
 BEGIN
   -- Operaciones con fechas y tipos de datos...
-END;`,
+END;` ,
       endpoint: () => this.auth.ejecutarScriptTiempo()
     },
     {
@@ -107,7 +107,7 @@ BEGIN
   
   DBMS_OUTPUT.PUT_LINE('Nombre de la BD: ' || v_nombre_bd);
   DBMS_OUTPUT.PUT_LINE('Fecha creación: ' || TO_CHAR(v_fecha_crea, 'YYYY-MM-DD HH24:MI:SS'));
-END;`,
+END;` ,
       endpoint: () => this.auth.ejecutarFechaCreacionBase()
     }
   ];
@@ -218,7 +218,6 @@ END;`,
     this.currentSqlCommand = '';
   }
 
-
   // MÉTODOS EXISTENTES PARA MANEJO DEL PANEL SQL
 
   ejecutarComandoSQL(): void {
@@ -268,9 +267,46 @@ END;`,
   }
 
   editarTabla(tabla: any): void {
-    // Aquí va la lógica para mostrar los datos de la tabla seleccionada
+    // Solo mostrar datos si tiene privilegios SELECT
+    if (!tabla.privileges.select) {
+      this.error = `No tienes privilegio SELECT para la tabla ${tabla.table_name}. No puedes ver sus datos.`;
+      return;
+    }
     this.tablaSeleccionada = tabla;
     this.mostrarModal = true;
     // Puedes agregar más lógica según tu aplicación
+  }
+
+  cambiarPagina(nuevaPagina: number): void {
+    if (nuevaPagina >= 1 && nuevaPagina <= this.totalPaginas()) {
+      this.paginaActual = nuevaPagina;
+    }
+  }
+
+  totalPaginas(): number {
+    return Math.ceil((this.filas.length || 0) / this.filasPorPagina);
+  }
+
+  get filasPaginadas(): any[] {
+    const inicio = (this.paginaActual - 1) * this.filasPorPagina;
+    return this.filas.slice(inicio, inicio + this.filasPorPagina);
+  }
+
+  cerrarModal(): void {
+    this.modalVisible = false;
+    setTimeout(() => {
+      this.mostrarModal = false;
+      this.tablaSeleccionada = null;
+      this.columnas = [];
+      this.filas = [];
+      this.atributos = [];
+      this.nuevaFila = [];
+      this.paginaActual = 1;
+    }, 300); // Si tienes animación, ajusta el tiempo según tu CSS
+  }
+
+  obtenerTipoDato(nombreColumna: string): string {
+    const atributo = this.atributos?.find(a => a.name === nombreColumna);
+    return atributo ? atributo.type : 'Desconocido';
   }
 }
