@@ -181,28 +181,46 @@ END;`,
     }
   }
 
-  // Formatear resultados de consultas SELECT
+  // ==================================================================
+  // FUNCIÓN CORREGIDA
+  // ==================================================================
   private formatQueryResult(rows: { [key: string]: any }[], columns: string[]): string {
     if (!rows || rows.length === 0) return 'No hay resultados';
-
+  
     let result = '';
     this.resultAsTable = [];
-
+  
+    // Asegurarse de que hay columnas para procesar
     if (columns && columns.length > 0) {
+      // 1. Añadir encabezados
       this.resultAsTable.push(columns);
       result += columns.join(' | ') + '\n';
       result += '-'.repeat(columns.join(' | ').length) + '\n';
+  
+      // 2. Procesar cada fila
+      rows.forEach((row: { [key: string]: any }) => {
+        // *LA CORRECCIÓN CLAVE ESTÁ AQUÍ*
+        // Mapear sobre el array columns para garantizar el orden correcto de los valores.
+        const values = columns.map(colName => {
+          const value = row[colName];
+          // Convertir a string y manejar valores nulos o indefinidos para evitar errores.
+          return value === null || value === undefined ? 'NULL' : String(value);
+        });
+  
+        this.resultAsTable.push(values);
+        result += values.join(' | ') + '\n';
+      });
+    } else {
+        // Fallback si no vienen columnas pero sí resultados (poco común)
+        rows.forEach((row: { [key: string]: any }) => {
+            const values = Object.values(row).map(v => String(v ?? 'NULL'));
+            result += values.join(' | ') + '\n';
+        });
     }
-
-    rows.forEach((row: { [key: string]: any }) => {
-      const values = Object.values(row);
-      this.resultAsTable.push(values.map(v => v.toString()));
-      result += values.join(' | ') + '\n';
-    });
-
+  
     return result;
   }
-
+  
   clearSelection(): void {
     this.selectedPredefinedCommand = '';
     this.sqlResult = null;
@@ -223,6 +241,7 @@ END;`,
           if (res.output) {
             this.sqlResult = res.output;
           } else if (res.result && res.result.length > 0) {
+            // Esta función ahora parsea correctamente la respuesta
             this.sqlResult = this.formatQueryResult(res.result, res.columns || []);
           } else {
             this.sqlResult = res.message || 'Comando ejecutado correctamente';
@@ -247,7 +266,7 @@ END;`,
     this.sqlResult = null;
   }
 
-  // MÉTODOS EXISTENTES (sin cambios)
+  // MÉTODOS EXISTENTES (con una pequeña corrección de sintaxis)
 
   logout(): void {
     this.auth.cerrarSesion();
@@ -261,12 +280,12 @@ END;`,
 
   editarTabla(tabla: any): void {
     if (!tabla.privileges.select) {
-      this.error = `No tienes privilegio SELECT para la tabla ${tabla.table_name}. No puedes ver sus datos.`;
-      return;
-    }
+  this.error = `No tienes privilegio SELECT para la tabla ${tabla.table_name}. No puedes ver sus datos.`;
+  return;
+}
     this.tablaSeleccionada = tabla;
     this.mostrarModal = true;
-    this.loadTableData(tabla.owner, tabla.table_name);  // Cargar los datos de la tabla seleccionada
+    this.loadTableData(tabla.owner, tabla.table_name);
   }
 
   loadTableData(owner: string, tableName: string): void {
@@ -274,7 +293,7 @@ END;`,
       next: (res: DatosTablaResponse) => {
         this.columnas = res.columns.map(col => col.name);
         this.filas = res.data;
-        this.error = '';  // Limpiar el error si los datos se cargan correctamente
+        this.error = '';
       },
       error: (e) => {
         this.error = 'Error al obtener datos de la tabla: ' + (e.error?.error || e.message);
