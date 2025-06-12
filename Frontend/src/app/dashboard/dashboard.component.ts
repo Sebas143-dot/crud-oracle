@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-
 import { NavbarComponent } from '../navbar/navbar.component';
 import { LayoutControlService } from '../services/layout-control.service';
 
@@ -15,13 +14,19 @@ import {
   SqlCommandResponse
 } from '../services/auth.service';
 
-// INTERFACE PARA COMANDOS PREDEFINIDOS
 interface PredefinedCommand {
   id: string;
   name: string;
   description: string;
   sqlPreview: string;
-  endpoint: () => any; // Función que ejecuta el comando
+  endpoint: () => any;
+}
+
+interface ParsedResult {
+  type: 'output' | 'table' | 'error' | 'message';
+  content: string;
+  sections?: { title: string; content: string }[];
+  tableData?: { headers: string[], rows: string[][] };
 }
 
 @Component({
@@ -35,10 +40,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   tablas: any[] = [];
   error = '';
-
   mostrarModal = false;
   modalVisible = false;
-
   tablaSeleccionada: any = null;
 
   columnas: string[] = [];
@@ -48,19 +51,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   paginaActual = 1;
   filasPorPagina = 10;
 
-  // PROPIEDADES PARA EL LAYOUT DIVIDIDO
   showSqlPanel = false;
   currentSqlCommand = '';
   sqlResult: string | null = null;
+  parsedResult: ParsedResult | null = null;
+
   private subscription: Subscription = new Subscription();
 
   resultAsTable: string[][] = [];
 
-  // NUEVAS PROPIEDADES PARA COMANDOS PREDEFINIDOS
   selectedPredefinedCommand = '';
   isExecutingCommand: boolean = false;
 
-  // COMANDOS PREDEFINIDOS DISPONIBLES
   predefinedCommands: PredefinedCommand[] = [
     {
       id: 'tiempo',
@@ -75,7 +77,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   v_varchar2 VARCHAR2(20) := 'Texto B';
   v_number NUMBER(10,2) := 12345.67;
 BEGIN
-  -- Operaciones con fechas y tipos de datos...
+  -- Operaciones con fechas...
 END;`,
       endpoint: () => this.auth.ejecutarScriptTiempo()
     },
@@ -88,7 +90,6 @@ END;`,
 BEGIN
   SELECT COUNT(*) INTO v_total_empleados
   FROM HR.EMPLOYEES;
-  
   DBMS_OUTPUT.PUT_LINE('Total de empleados: ' || v_total_empleados);
 END;`,
       endpoint: () => this.auth.ejecutarTotalEmpleadosHR()
@@ -103,9 +104,8 @@ END;`,
 BEGIN
   SELECT NAME, CREATED INTO v_nombre_bd, v_fecha_crea
   FROM V$DATABASE;
-  
-  DBMS_OUTPUT.PUT_LINE('Nombre de la BD: ' || v_nombre_bd);
-  DBMS_OUTPUT.PUT_LINE('Fecha creación: ' || TO_CHAR(v_fecha_crea, 'YYYY-MM-DD HH24:MI:SS'));
+  DBMS_OUTPUT.PUT_LINE('Nombre de la BD: ' + v_nombre_bd);
+  DBMS_OUTPUT.PUT_LINE('Fecha creación: ' + TO_CHAR(v_fecha_crea, 'YYYY-MM-DD HH24:MI:SS'));
 END;`,
       endpoint: () => this.auth.ejecutarFechaCreacionBase()
     }
@@ -123,7 +123,6 @@ END;`,
       error: e => this.error = 'Error al obtener tablas: ' + (e.error?.error || e.message)
     });
 
-    // SUSCRIBIRSE A LOS CAMBIOS DEL LAYOUT
     this.subscription.add(
       this.layoutService.showSqlPanel$.subscribe(show => {
         this.showSqlPanel = show;
@@ -141,7 +140,6 @@ END;`,
     this.subscription.unsubscribe();
   }
 
-  // Cargar comando seleccionado en el textarea
   loadPredefinedCommand(): void {
     if (this.selectedPredefinedCommand) {
       const command = this.predefinedCommands.find(cmd => cmd.id === this.selectedPredefinedCommand);
@@ -149,124 +147,268 @@ END;`,
         this.currentSqlCommand = command.sqlPreview;
         this.onSqlCommandChange();
         this.sqlResult = null;
+        this.parsedResult = null;
       }
     }
   }
 
-  // Ejecutar comando predefinido directamente (sin editar)
   executePredefinedCommand(): void {
     if (this.selectedPredefinedCommand && !this.isExecutingCommand) {
       const command = this.predefinedCommands.find(cmd => cmd.id === this.selectedPredefinedCommand);
       if (command) {
         this.isExecutingCommand = true;
         this.sqlResult = 'Ejecutando comando...';
+        this.parsedResult = null;
 
         command.endpoint().subscribe({
           next: (res: SqlCommandResponse) => {
             this.isExecutingCommand = false;
-            if (res.output) {
-              this.sqlResult = res.output;
-            } else if (res.result && res.result.length > 0) {
-              this.sqlResult = this.formatQueryResult(res.result, res.columns || []);
-            } else {
-              this.sqlResult = res.message || 'Comando ejecutado correctamente';
-            }
+            this.processResult(res);
           },
           error: (e: any) => {
             this.isExecutingCommand = false;
             this.sqlResult = 'Error: ' + (e.error?.error || e.message);
+            this.parsedResult = {
+              type: 'error',
+              content: 'Error: ' + (e.error?.error || e.message)
+            };
           }
         });
       }
     }
   }
 
-  // ==================================================================
-  // FUNCIÓN CORREGIDA
-  // ==================================================================
-  private formatQueryResult(rows: { [key: string]: any }[], columns: string[]): string {
-    if (!rows || rows.length === 0) return 'No hay resultados';
-  
-    let result = '';
-    this.resultAsTable = [];
-  
-    // Asegurarse de que hay columnas para procesar
-    if (columns && columns.length > 0) {
-      // 1. Añadir encabezados
-      this.resultAsTable.push(columns);
-      result += columns.join(' | ') + '\n';
-      result += '-'.repeat(columns.join(' | ').length) + '\n';
-  
-      // 2. Procesar cada fila
-      rows.forEach((row: { [key: string]: any }) => {
-        // *LA CORRECCIÓN CLAVE ESTÁ AQUÍ*
-        // Mapear sobre el array columns para garantizar el orden correcto de los valores.
-        const values = columns.map(colName => {
-          const value = row[colName];
-          // Convertir a string y manejar valores nulos o indefinidos para evitar errores.
-          return value === null || value === undefined ? 'NULL' : String(value);
-        });
-  
-        this.resultAsTable.push(values);
-        result += values.join(' | ') + '\n';
-      });
-    } else {
-        // Fallback si no vienen columnas pero sí resultados (poco común)
-        rows.forEach((row: { [key: string]: any }) => {
-            const values = Object.values(row).map(v => String(v ?? 'NULL'));
-            result += values.join(' | ') + '\n';
-        });
-    }
-  
-    return result;
-  }
-  
-  clearSelection(): void {
-    this.selectedPredefinedCommand = '';
-    this.sqlResult = null;
-    this.currentSqlCommand = '';
-  }
-
-  // MÉTODOS EXISTENTES PARA MANEJO DEL PANEL SQL
-
   ejecutarComandoSQL(): void {
     if (this.currentSqlCommand.trim() && !this.isExecutingCommand) {
       this.isExecutingCommand = true;
       this.sqlResult = 'Ejecutando comando...';
+      this.parsedResult = null;
 
       this.auth.ejecutarComandoSQL(this.currentSqlCommand).subscribe({
         next: (res: SqlCommandResponse) => {
           this.isExecutingCommand = false;
-
-          if (res.output) {
-            this.sqlResult = res.output;
-          } else if (res.result && res.result.length > 0) {
-            // Esta función ahora parsea correctamente la respuesta
-            this.sqlResult = this.formatQueryResult(res.result, res.columns || []);
-          } else {
-            this.sqlResult = res.message || 'Comando ejecutado correctamente';
-          }
+          this.processResult(res);
         },
         error: (e) => {
           this.isExecutingCommand = false;
           this.sqlResult = 'Error: ' + (e.error?.error || e.message);
+          this.parsedResult = {
+            type: 'error',
+            content: 'Error: ' + (e.error?.error || e.message)
+          };
         }
       });
     }
   }
 
+  private processResult(res: SqlCommandResponse): void {
+    if (res.output) {
+      this.sqlResult = res.output;
+      this.parsedResult = this.parseOutput(res.output);
+    } else if (res.result && res.result.length > 0) {
+      // Aquí se corrige para que acepte array de arrays
+      this.sqlResult = this.formatQueryResult(res.result, res.columns || []);
+      this.parsedResult = this.parseTableResult(res.result, res.columns || []);
+    } else {
+      this.sqlResult = res.message || 'Comando ejecutado correctamente';
+      this.parsedResult = {
+        type: 'message',
+        content: res.message || 'Comando ejecutado correctamente'
+      };
+    }
+  }
+
+  private parseOutput(output: string): ParsedResult {
+    const lines = output.split('\n').filter(line => line.trim() !== '');
+    if (this.isStructuredOutput(output)) {
+      return this.parseStructuredOutput(output);
+    }
+    return {
+      type: 'output',
+      content: output
+    };
+  }
+
+  private isStructuredOutput(output: string): boolean {
+    return output.includes('=====') ||
+           output.includes('OPERACIONES CON FECHAS') ||
+           output.includes('TIPOS DE DATOS ORACLE') ||
+           output.includes('TIPO DE DATO');
+  }
+
+  private parseStructuredOutput(output: string): ParsedResult {
+    const sections: { title: string; content: string }[] = [];
+    const lines = output.split('\n');
+    let currentSection = '';
+    let currentContent: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.includes('OPERACIONES CON FECHAS')) {
+        if (currentSection) {
+          sections.push({ title: currentSection, content: currentContent.join('\n') });
+        }
+        currentSection = 'Operaciones con Fechas';
+        currentContent = [];
+      } else if (line.includes('TIPOS DE DATOS ORACLE')) {
+        if (currentSection) {
+          sections.push({ title: currentSection, content: currentContent.join('\n') });
+        }
+        currentSection = 'Tipos de Datos Oracle';
+        currentContent = [];
+      } else if (line.includes('FIN DEL PROGRAMA')) {
+        if (currentSection) {
+          sections.push({ title: currentSection, content: currentContent.join('\n') });
+        }
+        break;
+      } else if (!line.includes('====') && line.trim() !== '') {
+        currentContent.push(line);
+      }
+    }
+
+    if (currentSection && currentContent.length > 0) {
+      sections.push({ title: currentSection, content: currentContent.join('\n') });
+    }
+
+    const tableData = this.extractTableData(output);
+
+    return {
+      type: 'output',
+      content: output,
+      sections: sections,
+      tableData: tableData
+    };
+  }
+
+  private extractTableData(output: string): { headers: string[], rows: string[][] } | undefined {
+    const lines = output.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.includes('TIPO DE DATO') && line.includes('VALOR')) {
+        const headers = ['TIPO DE DATO', 'VALOR'];
+        const rows: string[][] = [];
+        for (let j = i + 2; j < lines.length; j++) {
+          const dataLine = lines[j];
+          if (dataLine.includes('-'.repeat(80)) || dataLine.trim() === '') {
+            break;
+          }
+          const parts = dataLine.split(/\s{2,}/);
+          if (parts.length >= 2) {
+            rows.push([parts[0].trim(), parts[1].trim()]);
+          }
+        }
+        if (rows.length > 0) {
+          return { headers, rows };
+        }
+      }
+    }
+    return undefined;
+  }
+
+  private parseTableResult(rows: any[], columns: string[]): ParsedResult {
+    if (!rows || rows.length === 0) {
+      return {
+        type: 'message',
+        content: 'No hay resultados'
+      };
+    }
+
+    let headers: string[];
+    let tableRows: string[][];
+
+    if (Array.isArray(rows[0])) {
+      // Si es array de arrays
+      headers = columns && columns.length > 0 ? columns : Array.from({ length: rows[0].length }, (_, i) => `Columna ${i + 1}`);
+      tableRows = (rows as (string | number | null | undefined)[][]).map((row: (string | number | null | undefined)[]) =>
+        row.map((cell: string | number | null | undefined) => cell === null || cell === undefined ? 'NULL' : String(cell))
+      );
+    } else {
+      // Si es array de objetos
+      headers = columns && columns.length > 0 ? columns : Object.keys(rows[0]);
+      tableRows = rows.map(row =>
+        headers.map(colName => {
+          const value = row[colName];
+          return value === null || value === undefined ? 'NULL' : String(value);
+        })
+      );
+    }
+
+    return {
+      type: 'table',
+      content: '',
+      tableData: { headers, rows: tableRows }
+    };
+  }
+
+  private formatQueryResult(rows: any[], columns: string[]): string {
+    if (!rows || rows.length === 0) return 'No hay resultados';
+
+    let result = '';
+    this.resultAsTable = [];
+
+    if (Array.isArray(rows[0])) {
+      // Caso: array de arrays
+      if (columns && columns.length > 0) {
+        this.resultAsTable.push(columns);
+        result += columns.join(' | ') + '\n';
+        result += '-'.repeat(columns.join(' | ').length) + '\n';
+
+        rows.forEach((row: any[]) => {
+          const values = row.map(v => v === null || v === undefined ? 'NULL' : String(v));
+          this.resultAsTable.push(values);
+          result += values.join(' | ') + '\n';
+        });
+      } else {
+        rows.forEach((row: any[]) => {
+          const values = row.map(v => v === null || v === undefined ? 'NULL' : String(v));
+          result += values.join(' | ') + '\n';
+        });
+      }
+    } else {
+      // Caso: array de objetos
+      if (columns && columns.length > 0) {
+        this.resultAsTable.push(columns);
+        result += columns.join(' | ') + '\n';
+        result += '-'.repeat(columns.join(' | ').length) + '\n';
+
+        rows.forEach((row: { [key: string]: any }) => {
+          const values = columns.map(colName => {
+            const value = row[colName];
+            return value === null || value === undefined ? 'NULL' : String(value);
+          });
+          this.resultAsTable.push(values);
+          result += values.join(' | ') + '\n';
+        });
+      } else {
+        rows.forEach((row: { [key: string]: any }) => {
+          const values = Object.values(row).map(v => v === null || v === undefined ? 'NULL' : String(v));
+          result += values.join(' | ') + '\n';
+        });
+      }
+    }
+
+    return result;
+  }
+
+  clearSelection(): void {
+    this.selectedPredefinedCommand = '';
+    this.sqlResult = null;
+    this.parsedResult = null;
+    this.currentSqlCommand = '';
+  }
+
   cerrarPanelSQL(): void {
     this.layoutService.hideSqlPanel();
     this.sqlResult = null;
+    this.parsedResult = null;
     this.selectedPredefinedCommand = '';
   }
 
   onSqlCommandChange(): void {
     this.layoutService.updateSqlCommand(this.currentSqlCommand);
     this.sqlResult = null;
+    this.parsedResult = null;
   }
-
-  // MÉTODOS EXISTENTES (con una pequeña corrección de sintaxis)
 
   logout(): void {
     this.auth.cerrarSesion();
@@ -280,9 +422,9 @@ END;`,
 
   editarTabla(tabla: any): void {
     if (!tabla.privileges.select) {
-  this.error = `No tienes privilegio SELECT para la tabla ${tabla.table_name}. No puedes ver sus datos.`;
-  return;
-}
+      this.error = `No tienes privilegio SELECT para la tabla ${tabla.table_name}. No puedes ver sus datos.`;
+      return;
+    }
     this.tablaSeleccionada = tabla;
     this.mostrarModal = true;
     this.loadTableData(tabla.owner, tabla.table_name);
@@ -328,7 +470,7 @@ END;`,
   }
 
   obtenerTipoDato(nombreColumna: string): string {
-    const atributo = this.atributos?.find(a => a.name === nombreColumna);
+    const atributo = this.atributos.find(a => a.name === nombreColumna);
     return atributo ? atributo.type : 'Desconocido';
   }
 }
