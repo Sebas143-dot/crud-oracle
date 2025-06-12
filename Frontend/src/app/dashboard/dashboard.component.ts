@@ -24,6 +24,11 @@ interface PredefinedCommand {
   endpoint: () => any; // Función que ejecuta el comando
 }
 
+// Definición de la interfaz para las filas
+interface Row {
+  [key: string]: any;  // Cada fila tiene claves dinámicas con valores de tipo `any`
+}
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -57,6 +62,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   sqlResult: string | null = null;
   private subscription: Subscription = new Subscription();
 
+  resultAsTable: string[][] = [];
+
   // NUEVAS PROPIEDADES PARA COMANDOS PREDEFINIDOS
   selectedPredefinedCommand = '';
   isExecutingCommand: boolean = false;
@@ -77,7 +84,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   v_number NUMBER(10,2) := 12345.67;
 BEGIN
   -- Operaciones con fechas y tipos de datos...
-END;` ,
+END;`,
       endpoint: () => this.auth.ejecutarScriptTiempo()
     },
     {
@@ -107,7 +114,7 @@ BEGIN
   
   DBMS_OUTPUT.PUT_LINE('Nombre de la BD: ' || v_nombre_bd);
   DBMS_OUTPUT.PUT_LINE('Fecha creación: ' || TO_CHAR(v_fecha_crea, 'YYYY-MM-DD HH24:MI:SS'));
-END;` ,
+END;`,
       endpoint: () => this.auth.ejecutarFechaCreacionBase()
     }
   ];
@@ -142,8 +149,6 @@ END;` ,
     this.subscription.unsubscribe();
   }
 
-  // NUEVOS MÉTODOS PARA COMANDOS PREDEFINIDOS
-
   // Cargar comando seleccionado en el textarea
   loadPredefinedCommand(): void {
     if (this.selectedPredefinedCommand) {
@@ -151,7 +156,7 @@ END;` ,
       if (command) {
         this.currentSqlCommand = command.sqlPreview;
         this.onSqlCommandChange();
-        this.sqlResult = null; // Limpiar resultado anterior
+        this.sqlResult = null;
       }
     }
   }
@@ -167,7 +172,6 @@ END;` ,
         command.endpoint().subscribe({
           next: (res: SqlCommandResponse) => {
             this.isExecutingCommand = false;
-            // Formatear la respuesta según el tipo
             if (res.output) {
               this.sqlResult = res.output;
             } else if (res.result && res.result.length > 0) {
@@ -186,35 +190,30 @@ END;` ,
   }
 
   // Formatear resultados de consultas SELECT
-  private formatQueryResult(rows: any[], columns: string[]): string {
+  private formatQueryResult(rows: Row[], columns: string[]): string {
     if (!rows || rows.length === 0) return 'No hay resultados';
 
     let result = '';
+    this.resultAsTable = [];
 
-    // Agregar encabezados
     if (columns && columns.length > 0) {
+      this.resultAsTable.push(columns);
       result += columns.join(' | ') + '\n';
       result += '-'.repeat(columns.join(' | ').length) + '\n';
     }
 
-    // Agregar filas
-    rows.forEach(row => {
-      if (Array.isArray(row)) {
-        result += row.join(' | ') + '\n';
-      } else {
-        result += JSON.stringify(row) + '\n';
-      }
+    rows.forEach((row: Row) => {
+      const values = Object.values(row);
+      this.resultAsTable.push(values.map(v => v.toString()));
+      result += values.join(' | ') + '\n';
     });
 
     return result;
   }
 
   clearSelection(): void {
-    // Limpiar el comando predefinido seleccionado
     this.selectedPredefinedCommand = '';
     this.sqlResult = null;
-
-    // Limpiar el comando SQL en el editor
     this.currentSqlCommand = '';
   }
 
@@ -228,6 +227,7 @@ END;` ,
       this.auth.ejecutarComandoSQL(this.currentSqlCommand).subscribe({
         next: (res: SqlCommandResponse) => {
           this.isExecutingCommand = false;
+
           if (res.output) {
             this.sqlResult = res.output;
           } else if (res.result && res.result.length > 0) {
@@ -252,6 +252,7 @@ END;` ,
 
   onSqlCommandChange(): void {
     this.layoutService.updateSqlCommand(this.currentSqlCommand);
+    this.sqlResult = null;
   }
 
   // MÉTODOS EXISTENTES (sin cambios)
@@ -267,14 +268,12 @@ END;` ,
   }
 
   editarTabla(tabla: any): void {
-    // Solo mostrar datos si tiene privilegios SELECT
     if (!tabla.privileges.select) {
       this.error = `No tienes privilegio SELECT para la tabla ${tabla.table_name}. No puedes ver sus datos.`;
       return;
     }
     this.tablaSeleccionada = tabla;
     this.mostrarModal = true;
-    // Puedes agregar más lógica según tu aplicación
   }
 
   cambiarPagina(nuevaPagina: number): void {
@@ -302,7 +301,7 @@ END;` ,
       this.atributos = [];
       this.nuevaFila = [];
       this.paginaActual = 1;
-    }, 300); // Si tienes animación, ajusta el tiempo según tu CSS
+    }, 300);
   }
 
   obtenerTipoDato(nombreColumna: string): string {

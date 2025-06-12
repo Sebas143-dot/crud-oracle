@@ -495,9 +495,9 @@ api.get('/script/tiempo', verificar, async (req, res) => {
                 v_interval_ds  INTERVAL DAY(2) TO SECOND(6) := INTERVAL '05 12:30:45.123456' DAY TO SECOND;
             BEGIN
                 -- SECCIÓN 1: OPERACIONES CON FECHAS
-                DBMS_OUTPUT.PUT_LINE('================================================================================');
+                DBMS_OUTPUT.PUT_LINE('============================================================================');
                 DBMS_OUTPUT.PUT_LINE('                           OPERACIONES CON FECHAS');
-                DBMS_OUTPUT.PUT_LINE('================================================================================');
+                DBMS_OUTPUT.PUT_LINE('============================================================================');
                 
                 -- Cálculo de próximos y anteriores días
                 v_proximo_dia   := v_fecha + 1;

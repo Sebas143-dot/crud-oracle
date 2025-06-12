@@ -3,7 +3,7 @@
 
 <!-- ============ CONTENEDOR PRINCIPAL CON LAYOUT DIVIDIDO ============ -->
 <div class="main-container" [class.split-layout]="showSqlPanel">
-  
+
   <!-- ============ PANEL IZQUIERDO - TABLAS ============ -->
   <div class="left-panel" [class.collapsed]="showSqlPanel">
     <div class="container">
@@ -51,16 +51,11 @@
       <!-- ============ SECCIÓN DE COMANDOS PREDEFINIDOS ============ -->
       <div class="predefined-commands-section">
         <h4>Comandos Predefinidos</h4>
-        
+
         <div class="command-selector">
-          <select 
-            [(ngModel)]="selectedPredefinedCommand"
-            class="command-dropdown"
-            [disabled]="isExecutingCommand">
+          <select [(ngModel)]="selectedPredefinedCommand" class="command-dropdown" [disabled]="isExecutingCommand">
             <option value="">-- Seleccionar comando --</option>
-            <option 
-              *ngFor="let cmd of predefinedCommands" 
-              [value]="cmd.id">
+            <option *ngFor="let cmd of predefinedCommands" [value]="cmd.id">
               {{cmd.name}}
             </option>
           </select>
@@ -69,34 +64,25 @@
         <!-- Descripción del comando seleccionado -->
         <div class="command-description" *ngIf="selectedPredefinedCommand">
           <p>
-            <strong>Descripción:</strong> 
+            <strong>Descripción:</strong>
             {{ selectedPredefinedDescription }}
           </p>
         </div>
 
         <!-- Botones de acción para comandos predefinidos -->
         <div class="predefined-actions" *ngIf="selectedPredefinedCommand">
-          <button 
-            class="load-command-btn"
-            (click)="loadPredefinedCommand()"
-            [disabled]="isExecutingCommand"
+          <button class="load-command-btn" (click)="loadPredefinedCommand()" [disabled]="isExecutingCommand"
             title="Cargar comando en el editor para modificarlo">
-            📝 Cargar en Editor
+            Cargar en Editor
           </button>
-          
-          <button 
-            class="execute-predefined-btn"
-            (click)="executePredefinedCommand()"
-            [disabled]="isExecutingCommand"
+
+          <button class="execute-predefined-btn" (click)="executePredefinedCommand()" [disabled]="isExecutingCommand"
             title="Ejecutar comando directamente">
             <span *ngIf="!isExecutingCommand">Ejecutar Directo</span>
             <span *ngIf="isExecutingCommand">Ejecutando...</span>
           </button>
-          
-          <button 
-            class="clear-selection-btn"
-            (click)="clearSelection()"
-            [disabled]="isExecutingCommand"
+
+          <button class="clear-selection-btn" (click)="clearSelection()" [disabled]="isExecutingCommand"
             title="Limpiar selección">
             Limpiar
           </button>
@@ -105,32 +91,25 @@
 
       <!-- ============ DIVISOR ============ -->
       <div class="section-divider"></div>
-      
+
       <!-- ============ EDITOR SQL PERSONALIZADO ============ -->
       <div class="sql-editor">
-        <label for="sqlCommand">Comando SQL Personalizado:</label>
-        <textarea 
-          id="sqlCommand"
-          [(ngModel)]="currentSqlCommand" 
-          (input)="onSqlCommandChange()"
-          placeholder="Escribe tu comando SQL aquí o selecciona un comando predefinido arriba..."
-          rows="10"
+        <textarea id="sqlCommand" [(ngModel)]="currentSqlCommand" (input)="onSqlCommandChange()"
+          placeholder="Escribe tu comando SQL aquí o selecciona un comando predefinido arriba..." rows="10"
           [disabled]="isExecutingCommand">
-        </textarea>
-        
-        <button 
-          class="execute-btn" 
-          (click)="ejecutarComandoSQL()" 
+  </textarea>
+
+        <!-- Resultado de la consulta -->
+        <div class="sql-result" *ngIf="sqlResult">
+          <h4>Resultado:</h4>
+          <pre class="result-output">{{ sqlResult }}</pre>
+        </div>
+
+        <button class="execute-btn" (click)="ejecutarComandoSQL()"
           [disabled]="!currentSqlCommand.trim() || isExecutingCommand">
-          <span *ngIf="!isExecutingCommand">Ejecutar Comando</span>
+          <span *ngIf="!isExecutingCommand">Ejecutar Comando Manual</span>
           <span *ngIf="isExecutingCommand">⏳ Ejecutando...</span>
         </button>
-      </div>
-
-      <!-- ============ RESULTADO ============ -->
-      <div class="sql-result" *ngIf="sqlResult">
-        <h4>Resultado:</h4>
-        <pre class="result-content">{{ sqlResult }}</pre>
       </div>
     </div>
   </div>
@@ -170,7 +149,8 @@
 
         <span>Página {{paginaActual}} de {{totalPaginas()}}</span>
 
-        <button (click)="cambiarPagina(paginaActual + 1)" [disabled]="paginaActual === totalPaginas()">Siguiente</button>
+        <button (click)="cambiarPagina(paginaActual + 1)"
+          [disabled]="paginaActual === totalPaginas()">Siguiente</button>
       </div>
     </div>
 
