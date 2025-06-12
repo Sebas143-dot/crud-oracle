@@ -26,7 +26,7 @@ export class NavbarComponent implements OnInit {
   constructor(
     private auth: AuthService,
     private layoutService: LayoutControlService // NUEVA INYECCIÓN
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.nombreUsuario = this.extraerNombreUsuario();
@@ -72,7 +72,7 @@ export class NavbarComponent implements OnInit {
   // MÉTODO MODIFICADO
   toggleComando(): void {
     this.mostrarComando = !this.mostrarComando;
-    
+
     // Si se abre el comando, activar panel en dashboard
     if (this.mostrarComando) {
       this.layoutService.activatesSqlPanel(this.comando);
@@ -85,9 +85,9 @@ export class NavbarComponent implements OnInit {
       // Cerrar dropdown del navbar y activar panel en dashboard
       this.mostrarComando = false;
       this.layoutService.activatesSqlPanel(this.comando);
-      
+
       this.auth.ejecutarComandoSQL(this.comando).subscribe({
-        next: (res) => this.resultadoComando = res.resultado,
+        next: (res) => this.resultadoComando = res.output ?? null,
         error: (e: HttpErrorResponse) => {
           this.error = 'Error ejecutando el comando';
           console.error(e);

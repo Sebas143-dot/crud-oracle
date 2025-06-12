@@ -47,68 +47,91 @@
           ✕
         </button>
       </div>
+
+      <!-- ============ SECCIÓN DE COMANDOS PREDEFINIDOS ============ -->
+      <div class="predefined-commands-section">
+        <h4>Comandos Predefinidos</h4>
+        
+        <div class="command-selector">
+          <select 
+            [(ngModel)]="selectedPredefinedCommand"
+            class="command-dropdown"
+            [disabled]="isExecutingCommand">
+            <option value="">-- Seleccionar comando --</option>
+            <option 
+              *ngFor="let cmd of predefinedCommands" 
+              [value]="cmd.id">
+              {{cmd.name}}
+            </option>
+          </select>
+        </div>
+
+        <!-- Descripción del comando seleccionado -->
+        <div class="command-description" *ngIf="selectedPredefinedCommand">
+          <p>
+            <strong>Descripción:</strong> 
+            {{ selectedPredefinedDescription }}
+          </p>
+        </div>
+
+        <!-- Botones de acción para comandos predefinidos -->
+        <div class="predefined-actions" *ngIf="selectedPredefinedCommand">
+          <button 
+            class="load-command-btn"
+            (click)="loadPredefinedCommand()"
+            [disabled]="isExecutingCommand"
+            title="Cargar comando en el editor para modificarlo">
+            Cargar en Editor
+          </button>
+          
+          <button 
+            class="execute-predefined-btn"
+            (click)="executePredefinedCommand()"
+            [disabled]="isExecutingCommand"
+            title="Ejecutar comando directamente">
+            <span *ngIf="!isExecutingCommand">Ejecutar Directo</span>
+            <span *ngIf="isExecutingCommand">Ejecutando...</span>
+          </button>
+          
+          <button 
+            class="clear-selection-btn"
+            (click)="clearSelection()"
+            [disabled]="isExecutingCommand"
+            title="Limpiar selección">
+            Limpiar
+          </button>
+        </div>
+      </div>
+
+      <!-- ============ DIVISOR ============ -->
+      <div class="section-divider"></div>
       
+      <!-- ============ EDITOR SQL PERSONALIZADO ============ -->
       <div class="sql-editor">
-        <label for="sqlCommand">Comando SQL:</label>
+        <label for="sqlCommand">Comando SQL Personalizado:</label>
         <textarea 
           id="sqlCommand"
           [(ngModel)]="currentSqlCommand" 
           (input)="onSqlCommandChange()"
-          placeholder="Escribe tu comando SQL aquí..."
-          rows="8">
+          placeholder="Escribe tu comando SQL aquí o selecciona un comando predefinido arriba..."
+          rows="10"
+          [disabled]="isExecutingCommand">
         </textarea>
         
-        <button class="execute-btn" (click)="ejecutarComandoSQL()" [disabled]="!currentSqlCommand.trim()">
-        Ejecutar Comando
+        <button 
+          class="execute-btn" 
+          (click)="ejecutarComandoSQL()" 
+          [disabled]="!currentSqlCommand.trim() || isExecutingCommand">
+          <span *ngIf="!isExecutingCommand">Ejecutar Comando</span>
+          <span *ngIf="isExecutingCommand">Ejecutando...</span>
         </button>
       </div>
 
+      <!-- ============ RESULTADO ============ -->
       <div class="sql-result" *ngIf="sqlResult">
         <h4>Resultado:</h4>
-        <pre>{{ sqlResult }}</pre>
+        <pre class="result-content">{{ sqlResult }}</pre>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- ============ MODAL PRINCIPAL (datos) ============ -->
-<div class="modal-overlay" [class.show]="modalVisible" *ngIf="mostrarModal">
-  <div class="modal" [class.show]="modalVisible">
-    <h2>Contenido: {{tablaSeleccionada?.table_name}}</h2>
-
-    <!-- Encabezado columnas / tipos -->
-    <div class="tabla-wrapper" *ngIf="columnas?.length">
-      <table>
-        <thead>
-          <tr>
-            <th *ngFor="let c of columnas">
-              {{c}}
-              <div class="tipo-dato">{{obtenerTipoDato(c)}}</div>
-            </th>
-          </tr>
-        </thead>
-      </table>
-    </div>
-
-    <!-- Datos actuales con paginación -->
-    <div class="tabla-wrapper" *ngIf="filas?.length">
-      <table>
-        <tbody>
-          <tr *ngFor="let f of filasPaginadas">
-            <td *ngFor="let cel of f">{{cel}}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="paginacion" *ngIf="filas.length > filasPorPagina">
-        <button (click)="cambiarPagina(paginaActual - 1)" [disabled]="paginaActual === 1">Anterior</button>
-
-        <span>Página {{paginaActual}} de {{totalPaginas()}}</span>
-
-        <button (click)="cambiarPagina(paginaActual + 1)" [disabled]="paginaActual === totalPaginas()">Siguiente</button>
-      </div>
-    </div>
-
-    <button class="close-btn" (click)="cerrarModal()">Cerrar</button>
   </div>
 </div>

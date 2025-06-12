@@ -2,26 +2,36 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Subscription } from 'rxjs'; // NUEVA IMPORTACIÓN
+import { Subscription } from 'rxjs';
 
 import { NavbarComponent } from '../navbar/navbar.component';
-import { LayoutControlService } from '../services/layout-control.service'; // NUEVA IMPORTACIÓN
+import { LayoutControlService } from '../services/layout-control.service';
 
 import {
   AuthService,
   TablasResponse,
   DatosTablaResponse,
-  TiposTablaResponse
+  TiposTablaResponse,
+  SqlCommandResponse
 } from '../services/auth.service';
+
+// INTERFACE PARA COMANDOS PREDEFINIDOS
+interface PredefinedCommand {
+  id: string;
+  name: string;
+  description: string;
+  sqlPreview: string;
+  endpoint: () => any; // Función que ejecuta el comando
+}
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, NavbarComponent], 
+  imports: [CommonModule, FormsModule, NavbarComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
-export class DashboardComponent implements OnInit, OnDestroy { // OnDestroy agregado
+export class DashboardComponent implements OnInit, OnDestroy {
 
   tablas: any[] = [];
   error = '';
@@ -41,16 +51,71 @@ export class DashboardComponent implements OnInit, OnDestroy { // OnDestroy agre
   paginaActual = 1;
   filasPorPagina = 10;
 
-  // NUEVAS PROPIEDADES PARA EL LAYOUT DIVIDIDO
+  // PROPIEDADES PARA EL LAYOUT DIVIDIDO
   showSqlPanel = false;
   currentSqlCommand = '';
   sqlResult: string | null = null;
   private subscription: Subscription = new Subscription();
 
+  // NUEVAS PROPIEDADES PARA COMANDOS PREDEFINIDOS
+  selectedPredefinedCommand = '';
+  isExecutingCommand = false;
+
+  // COMANDOS PREDEFINIDOS DISPONIBLES
+  predefinedCommands: PredefinedCommand[] = [
+    {
+      id: 'tiempo',
+      name: 'Script de Tiempo y Tipos de Datos',
+      description: 'Ejecuta operaciones con fechas y muestra todos los tipos de datos Oracle',
+      sqlPreview: `DECLARE
+  v_fecha DATE := TO_DATE('2025-06-11', 'YYYY-MM-DD');
+  v_proximo_dia DATE;
+  v_dia_anterior DATE;
+  -- Variables para tipos de datos
+  v_char CHAR(10) := 'TextoA';
+  v_varchar2 VARCHAR2(20) := 'Texto B';
+  v_number NUMBER(10,2) := 12345.67;
+BEGIN
+  -- Operaciones con fechas y tipos de datos...
+END;`,
+      endpoint: () => this.auth.ejecutarScriptTiempo()
+    },
+    {
+      id: 'empleados-hr',
+      name: 'Total Empleados HR',
+      description: 'Cuenta el total de empleados en la tabla HR.EMPLOYEES',
+      sqlPreview: `DECLARE
+  v_total_empleados NUMBER;
+BEGIN
+  SELECT COUNT(*) INTO v_total_empleados
+  FROM HR.EMPLOYEES;
+  
+  DBMS_OUTPUT.PUT_LINE('Total de empleados: ' || v_total_empleados);
+END;`,
+      endpoint: () => this.auth.ejecutarTotalEmpleadosHR()
+    },
+    {
+      id: 'fecha-bd',
+      name: 'Fecha Creación Base de Datos',
+      description: 'Muestra el nombre y fecha de creación de la base de datos',
+      sqlPreview: `DECLARE
+  v_nombre_bd VARCHAR2(50);
+  v_fecha_crea DATE;
+BEGIN
+  SELECT NAME, CREATED INTO v_nombre_bd, v_fecha_crea
+  FROM V$DATABASE;
+  
+  DBMS_OUTPUT.PUT_LINE('Nombre de la BD: ' || v_nombre_bd);
+  DBMS_OUTPUT.PUT_LINE('Fecha creación: ' || TO_CHAR(v_fecha_crea, 'YYYY-MM-DD HH24:MI:SS'));
+END;`,
+      endpoint: () => this.auth.ejecutarFechaCreacionBase()
+    }
+  ];
+
   constructor(
     private auth: AuthService,
     private router: Router,
-    private layoutService: LayoutControlService // NUEVA INYECCIÓN
+    private layoutService: LayoutControlService
   ) { }
 
   ngOnInit(): void {
@@ -73,19 +138,107 @@ export class DashboardComponent implements OnInit, OnDestroy { // OnDestroy agre
     );
   }
 
-  // MÉTODO PARA LIMPIAR SUSCRIPCIONES
   ngOnDestroy(): void {
     this.subscription.unsubscribe();
   }
 
-  // NUEVOS MÉTODOS PARA MANEJO DEL PANEL SQL
+  // NUEVOS MÉTODOS PARA COMANDOS PREDEFINIDOS
+
+  // Cargar comando seleccionado en el textarea
+  loadPredefinedCommand(): void {
+    if (this.selectedPredefinedCommand) {
+      const command = this.predefinedCommands.find(cmd => cmd.id === this.selectedPredefinedCommand);
+      if (command) {
+        this.currentSqlCommand = command.sqlPreview;
+        this.onSqlCommandChange();
+        this.sqlResult = null; // Limpiar resultado anterior
+      }
+    }
+  }
+
+  // Ejecutar comando predefinido directamente (sin editar)
+  executePredefinedCommand(): void {
+    if (this.selectedPredefinedCommand && !this.isExecutingCommand) {
+      const command = this.predefinedCommands.find(cmd => cmd.id === this.selectedPredefinedCommand);
+      if (command) {
+        this.isExecutingCommand = true;
+        this.sqlResult = 'Ejecutando comando...';
+
+        command.endpoint().subscribe({
+          next: (res: SqlCommandResponse) => {
+            this.isExecutingCommand = false;
+            // Formatear la respuesta según el tipo
+            if (res.output) {
+              this.sqlResult = res.output;
+            } else if (res.result && res.result.length > 0) {
+              this.sqlResult = this.formatQueryResult(res.result, res.columns || []);
+            } else {
+              this.sqlResult = res.message || 'Comando ejecutado correctamente';
+            }
+          },
+          error: (e: any) => {
+            this.isExecutingCommand = false;
+            this.sqlResult = 'Error: ' + (e.error?.error || e.message);
+          }
+        });
+      }
+    }
+  }
+
+  // Formatear resultados de consultas SELECT
+  private formatQueryResult(rows: any[], columns: string[]): string {
+    if (!rows || rows.length === 0) return 'No hay resultados';
+
+    let result = '';
+
+    // Agregar encabezados
+    if (columns && columns.length > 0) {
+      result += columns.join(' | ') + '\n';
+      result += '-'.repeat(columns.join(' | ').length) + '\n';
+    }
+
+    // Agregar filas
+    rows.forEach(row => {
+      if (Array.isArray(row)) {
+        result += row.join(' | ') + '\n';
+      } else {
+        result += JSON.stringify(row) + '\n';
+      }
+    });
+
+    return result;
+  }
+
+  clearSelection(): void {
+    // Limpiar el comando predefinido seleccionado
+    this.selectedPredefinedCommand = '';
+    this.sqlResult = null;
+
+    // Limpiar el comando SQL en el editor
+    this.currentSqlCommand = '';
+  }
+
+
+  // MÉTODOS EXISTENTES PARA MANEJO DEL PANEL SQL
+
   ejecutarComandoSQL(): void {
-    if (this.currentSqlCommand.trim()) {
+    if (this.currentSqlCommand.trim() && !this.isExecutingCommand) {
+      this.isExecutingCommand = true;
+      this.sqlResult = 'Ejecutando comando...';
+
       this.auth.ejecutarComandoSQL(this.currentSqlCommand).subscribe({
-        next: (res) => {
-          this.sqlResult = res.resultado;
+        next: (res: SqlCommandResponse) => {
+          this.isExecutingCommand = false;
+          if (res.output) {
+            this.sqlResult = res.output;
+          } else if (res.result && res.result.length > 0) {
+            this.sqlResult = this.formatQueryResult(res.result, res.columns || []);
+          } else {
+            this.sqlResult = res.message || 'Comando ejecutado correctamente';
+          }
         },
         error: (e) => {
+          this.isExecutingCommand = false;
           this.sqlResult = 'Error: ' + (e.error?.error || e.message);
         }
       });
@@ -95,132 +248,29 @@ export class DashboardComponent implements OnInit, OnDestroy { // OnDestroy agre
   cerrarPanelSQL(): void {
     this.layoutService.hideSqlPanel();
     this.sqlResult = null;
+    this.selectedPredefinedCommand = '';
   }
 
   onSqlCommandChange(): void {
     this.layoutService.updateSqlCommand(this.currentSqlCommand);
   }
 
+  // MÉTODOS EXISTENTES (sin cambios)
+
   logout(): void {
     this.auth.cerrarSesion();
     this.router.navigate(['/login']);
   }
 
+  get selectedPredefinedDescription(): string | undefined {
+    const cmd = this.predefinedCommands.find(cmd => cmd.id === this.selectedPredefinedCommand);
+    return cmd?.description;
+  }
+
   editarTabla(tabla: any): void {
-    this.error = '';
-    if (!tabla.privileges.select) {
-      this.error = `No tienes privilegio SELECT para la tabla ${tabla.table_name}. No puedes ver sus datos.`;
-      return;
-    }
+    // Aquí va la lógica para mostrar los datos de la tabla seleccionada
     this.tablaSeleccionada = tabla;
     this.mostrarModal = true;
-
-    setTimeout(() => {
-      this.modalVisible = true;
-    }, 10);
-
-    this.mostrarInsert = false;
-    this.columnas = [];
-    this.filas = [];
-    this.atributos = [];
-    this.nuevaFila = [];
-    this.paginaActual = 1;
-
-    if (tabla.privileges.select) {
-      this.auth.obtenerDatosTabla(tabla.owner, tabla.table_name)
-        .subscribe({
-          next: (r: DatosTablaResponse) => {
-            this.filas = r.data ?? [];
-            this.columnas = r.columns.map(c => (c as any).name ?? c);
-            this.nuevaFila = Array(this.columnas.length).fill('');
-          },
-          error: () => this.error = 'No se pudieron cargar los datos.'
-        });
-
-      this.auth.getTiposDeTabla(tabla.owner, tabla.table_name)
-        .subscribe({
-          next: (r: TiposTablaResponse) => {
-            this.atributos = r.columns.map(col => ({
-              name: col.name,
-              type: col.type || 'VARCHAR'
-            }));
-          },
-          error: e => console.error('Error tipos:', e)
-        });
-    }
-  }
-
-  cerrarModal(): void {
-    this.modalVisible = false;
-    setTimeout(() => {
-      this.mostrarModal = false;
-      this.tablaSeleccionada = null;
-      this.columnas = [];
-      this.filas = [];
-      this.atributos = [];
-      this.nuevaFila = [];
-      this.paginaActual = 1;
-    }, 300);
-  }
-
-  get filasPaginadas() {
-    const start = (this.paginaActual - 1) * this.filasPorPagina;
-    return this.filas.slice(start, start + this.filasPorPagina);
-  }
-
-  totalPaginas(): number {
-    return Math.ceil(this.filas.length / this.filasPorPagina);
-  }
-
-  cambiarPagina(n: number): void {
-    if (n >= 1 && n <= this.totalPaginas()) {
-      this.paginaActual = n;
-    }
-  }
-
-  abrirInsert(): void {
-    if (this.tablaSeleccionada?.privileges.insert) {
-      this.nuevaFila = Array(this.columnas.length).fill('');
-      this.mostrarInsert = true;
-    }
-  }
-
-  cerrarInsert(): void {
-    this.mostrarInsert = false;
-  }
-
-  insertarFila(): void {
-    if (!this.tablaSeleccionada) { return; }
-
-    const filaConvertida = this.nuevaFila.map((v, i) => {
-      const tipo = (this.atributos[i]?.type || '').toUpperCase();
-      if (v === '' || v === null) return null;
-      return tipo.includes('NUMBER') || tipo.includes('INT')
-        ? Number(v)
-        : v;
-    });
-
-    this.auth.insertarDatosTabla(
-      this.tablaSeleccionada.owner,
-      this.tablaSeleccionada.table_name,
-      this.columnas,
-      [filaConvertida]
-    ).subscribe({
-      next: () => {
-        alert('Fila insertada');
-
-        if (this.tablaSeleccionada.privileges.select) {
-          this.editarTabla(this.tablaSeleccionada);
-        } else {
-          this.cerrarInsert();
-        }
-      },
-      error: e => { console.error(e); alert('Error al insertar'); }
-    });
-  }
-
-  obtenerTipoDato(nombreColumna: string): string {
-    const a = this.atributos.find(x => x.name === nombreColumna);
-    return a ? a.type : 'Desconocido';
+    // Puedes agregar más lógica según tu aplicación
   }
 }

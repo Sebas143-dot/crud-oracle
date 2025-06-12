@@ -17,6 +17,14 @@ export interface TiposTablaResponse {
   columns: { name: string; type: string }[];
 }
 
+// NUEVA INTERFACE PARA COMANDOS SQL
+export interface SqlCommandResponse {
+  message: string;
+  output?: string;
+  result?: any[];
+  columns?: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private apiUrl = 'http://localhost:3000/api';
@@ -80,8 +88,40 @@ export class AuthService {
     return this.http.get<{ result: string[] }>(`${this.apiUrl}/privilegios`, { headers: this.header() });
   }
 
-  /* ========== ejecutar comando SQL ========== */
-  ejecutarComandoSQL(comando: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/ejecutar-comando`, { comando }, { headers: this.header() });
+  /* ========== COMANDOS SQL - ACTUALIZADOS ========== */
+  
+  // Comando SQL personalizado (corregido el endpoint)
+  ejecutarComandoSQL(comando: string): Observable<SqlCommandResponse> {
+    return this.http.post<SqlCommandResponse>(
+      `${this.apiUrl}/script/ejecutar-personalizado`, 
+      { query: comando }, 
+      { headers: this.header() }
+    );
+  }
+
+  // NUEVOS MÉTODOS PARA COMANDOS PREDEFINIDOS
+  
+  // Script de tiempo y tipos de datos
+  ejecutarScriptTiempo(): Observable<SqlCommandResponse> {
+    return this.http.get<SqlCommandResponse>(
+      `${this.apiUrl}/script/tiempo`, 
+      { headers: this.header() }
+    );
+  }
+
+  // Total empleados HR
+  ejecutarTotalEmpleadosHR(): Observable<SqlCommandResponse> {
+    return this.http.get<SqlCommandResponse>(
+      `${this.apiUrl}/script/total-empleados-hr`, 
+      { headers: this.header() }
+    );
+  }
+
+  // Fecha creación base de datos
+  ejecutarFechaCreacionBase(): Observable<SqlCommandResponse> {
+    return this.http.get<SqlCommandResponse>(
+      `${this.apiUrl}/script/fecha-creacion-base`, 
+      { headers: this.header() }
+    );
   }
 }
