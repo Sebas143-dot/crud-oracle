@@ -38,15 +38,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   mostrarModal = false;
   modalVisible = false;
-  mostrarInsert = false;
 
   tablaSeleccionada: any = null;
 
   columnas: string[] = [];
   filas: any[][] = [];
   atributos: { name: string; type: string }[] = [];
-
-  nuevaFila: string[] = [];
 
   paginaActual = 1;
   filasPorPagina = 10;
@@ -269,6 +266,20 @@ END;`,
     }
     this.tablaSeleccionada = tabla;
     this.mostrarModal = true;
+    this.loadTableData(tabla.owner, tabla.table_name);  // Cargar los datos de la tabla seleccionada
+  }
+
+  loadTableData(owner: string, tableName: string): void {
+    this.auth.obtenerDatosTabla(owner, tableName).subscribe({
+      next: (res: DatosTablaResponse) => {
+        this.columnas = res.columns.map(col => col.name);
+        this.filas = res.data;
+        this.error = '';  // Limpiar el error si los datos se cargan correctamente
+      },
+      error: (e) => {
+        this.error = 'Error al obtener datos de la tabla: ' + (e.error?.error || e.message);
+      }
+    });
   }
 
   cambiarPagina(nuevaPagina: number): void {
@@ -293,8 +304,6 @@ END;`,
       this.tablaSeleccionada = null;
       this.columnas = [];
       this.filas = [];
-      this.atributos = [];
-      this.nuevaFila = [];
       this.paginaActual = 1;
     }, 300);
   }

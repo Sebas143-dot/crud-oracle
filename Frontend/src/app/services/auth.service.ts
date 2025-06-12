@@ -27,7 +27,7 @@ export interface SqlCommandResponse {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private apiUrl = 'http://localhost:3000/api';
+  private apiUrl = 'http://localhost:3000/api';  // Asegúrate de que este URL sea el correcto para tu API
 
   constructor(private http: HttpClient) { }
 
@@ -42,6 +42,7 @@ export class AuthService {
   login(user: string, password: string) {
     return this.http.post<{ token: string }>(`${this.apiUrl}/login`, { user, password });
   }
+
   guardarToken(t: string) { localStorage.setItem('token', t); }
   obtenerToken() { return localStorage.getItem('token'); }
   cerrarSesion() { localStorage.removeItem('token'); }
@@ -70,7 +71,7 @@ export class AuthService {
     owner: string,
     tableName: string,
     columns: string[],
-    data: any[][]
+    data: any[][]  // Asegúrate de que este parámetro coincida con lo que espera tu API
   ) {
     return this.http.post(
       `${this.apiUrl}/tabla`,
@@ -103,25 +104,16 @@ export class AuthService {
   
   // Script de tiempo y tipos de datos
   ejecutarScriptTiempo(): Observable<SqlCommandResponse> {
-    return this.http.get<SqlCommandResponse>(
-      `${this.apiUrl}/script/tiempo`, 
-      { headers: this.header() }
-    );
+    return this.http.get<SqlCommandResponse>(`${this.apiUrl}/script/tiempo`, { headers: this.header() });
   }
 
   // Total empleados HR
   ejecutarTotalEmpleadosHR(): Observable<SqlCommandResponse> {
-    return this.http.get<SqlCommandResponse>(
-      `${this.apiUrl}/script/total-empleados-hr`, 
-      { headers: this.header() }
-    );
+    return this.http.get<SqlCommandResponse>(`${this.apiUrl}/script/total-empleados-hr`, { headers: this.header() });
   }
 
   // Fecha creación base de datos
   ejecutarFechaCreacionBase(): Observable<SqlCommandResponse> {
-    return this.http.get<SqlCommandResponse>(
-      `${this.apiUrl}/script/fecha-creacion-base`, 
-      { headers: this.header() }
-    );
+    return this.http.get<SqlCommandResponse>(`${this.apiUrl}/script/fecha-creacion-base`, { headers: this.header() });
   }
 }
