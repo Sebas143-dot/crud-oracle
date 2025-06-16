@@ -1,47 +1,51 @@
 //#region Imports
 
 require('dotenv').config();
-const oracledb = require('oracledb');
+const { Pool } = require('pg');
 const express = require('express');
 const api = express.Router();
 api.use(express.json());
 const jwt = require('jsonwebtoken');
 const SECRET = process.env.JWT_SECRET;
 const verificar = require('../config/auth');
+const { getPool, adminPool } = require('../config/database');
 
 //#endregion
-
-api.get('/test', (req, res) => {
-    res.json({ message: true });
-});
-
 api.post('/login', async (req, res) => {
     const { user, password } = req.body;
 
     try {
-        const connection = await oracledb.getConnection({
-            user,
-            password,
-            connectString: process.env.ORACLE_CONNECT_STRING
-        });
-        await connection.close();
+        // Crear pool de conexión con las credenciales del usuario
+        const pool = getPool(user, password);
+
+        // Probar la conexión
+        const client = await pool.connect();
+        await client.query('SELECT NOW()'); // Query simple para probar conexión
+        client.release();
+
+        // Cerrar el pool temporal
+        await pool.end();
 
         // Si la conexión es exitosa, se genera un token
-        console.log(`El usuario ${user} se conectó a la BDD Exitosamente`);
+        console.log(`El usuario ${user} se conectó a PostgreSQL exitosamente`);
         const token = jwt.sign({ user, password }, SECRET, { expiresIn: '1h' });
         res.json({
             token
         });
     } catch (err) {
-        // Manejo simple por código de error
-        if (err.message && err.message.includes('ORA-01017')) {
+        // Manejo de errores específicos de PostgreSQL
+        if (err.code === '28P01' || err.code === '28000') { // Invalid password
             res.status(401).json({
                 error: 'Usuario o contraseña incorrectos'
             });
+        } else if (err.code === '3D000') { // Invalid database name
+            res.status(401).json({
+                error: 'Base de datos no encontrada'
+            });
         } else {
-            console.error('Error al conectar a Oracle:', err);
+            console.error('Error al conectar a PostgreSQL:', err);
             res.status(500).json({
-                error: 'Error al conectar a Oracle',
+                error: 'Error al conectar a PostgreSQL',
                 details: err.message
             });
         }
@@ -49,116 +53,228 @@ api.post('/login', async (req, res) => {
 });
 
 api.get('/privilegios', verificar, async (req, res) => {
+    let client;
     try {
-        const connection = await oracledb.getConnection({
-            user: req.user,
-            password: req.password,
-            connectString: process.env.ORACLE_CONNECT_STRING
-        });
+        const pool = getPool(req.user, req.password);
+        client = await pool.connect();
 
-        const result = await connection.execute(
-            `SELECT privilege FROM user_sys_privs`
-        );
+        // Consultar los roles y privilegios del usuario actual
+        const result = await client.query(`
+            SELECT 
+                rolsuper, 
+                rolinherit, 
+                rolcreaterole, 
+                rolcreatedb, 
+                rolcanlogin, 
+                rolreplication, 
+                rolbypassrls,
+                rolconnlimit
+            FROM pg_roles 
+            WHERE rolname = current_user
+        `);
 
-        await connection.close();
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Usuario no encontrado en pg_roles'
+            });
+        }
 
-        // Si la conexión es exitosa, se genera un token
-        console.log(`El usuario ${req.user} solicitó los privilegios de la BDD Exitosamente`);
+        const userRole = result.rows[0];
+        const privileges = [];
+
+        // Mapear los privilegios booleanos a nombres descriptivos
+        if (userRole.rolsuper) {
+            privileges.push('SUPERUSER');
+        }
+        
+        if (userRole.rolinherit) {
+            privileges.push('INHERIT ROLE');
+        }
+        
+        if (userRole.rolcreaterole) {
+            privileges.push('CREATE ROLE');
+        }
+        
+        if (userRole.rolcreatedb) {
+            privileges.push('CREATE DATABASE');
+        }
+        
+        if (userRole.rolcanlogin) {
+            privileges.push('LOGIN');
+        }
+        
+        if (userRole.rolreplication) {
+            privileges.push('REPLICATION');
+        }
+        
+        if (userRole.rolbypassrls) {
+            privileges.push('BYPASS ROW LEVEL SECURITY');
+        }
+
+        // Verificar privilegios adicionales
+        const dbPrivs = await client.query(`
+            SELECT has_database_privilege(current_user, current_database(), 'CONNECT') as can_connect,
+                   has_database_privilege(current_user, current_database(), 'CREATE') as can_create_schema,
+                   has_database_privilege(current_user, current_database(), 'TEMP') as can_create_temp
+        `);
+
+        if (dbPrivs.rows[0].can_connect) {
+            privileges.push('CONNECT DATABASE');
+        }
+        
+        if (dbPrivs.rows[0].can_create_schema) {
+            privileges.push('CREATE SCHEMA');
+        }
+        
+        if (dbPrivs.rows[0].can_create_temp) {
+            privileges.push('CREATE TEMP TABLE');
+        }
+
+        // Verificar privilegios en el esquema public
+        const schemaPrivs = await client.query(`
+            SELECT has_schema_privilege(current_user, 'public', 'CREATE') as can_create_in_public,
+                   has_schema_privilege(current_user, 'public', 'USAGE') as can_use_public
+        `);
+
+        if (schemaPrivs.rows[0].can_create_in_public) {
+            privileges.push('CREATE TABLE');
+        }
+        
+        if (schemaPrivs.rows[0].can_use_public) {
+            privileges.push('USAGE ON SCHEMA');
+        }
+
+        console.log(`El usuario ${req.user} solicitó los privilegios de PostgreSQL exitosamente`);
 
         res.json({
-            result: result.rows.map(row => row[0])
+            result: privileges
         });
+
     } catch (err) {
-        // Manejo simple por código de error
-        console.error('Error al solicitar privilegios a Oracle:\n', err);
+        console.error('Error al solicitar privilegios a PostgreSQL:\n', err);
         res.status(500).json({
-            error: 'Error al solicitar privilegios a Oracle',
+            error: 'Error al solicitar privilegios a PostgreSQL',
             details: err.message
         });
+    } finally {
+        // Siempre liberar el cliente
+        if (client) {
+            client.release();
+        }
     }
 });
 
 api.get('/rol', verificar, async (req, res) => {
     try {
-        const connection = await oracledb.getConnection({
-            user: req.user,
-            password: req.password,
-            connectString: process.env.ORACLE_CONNECT_STRING
-        });
+        const pool = getPool(req.user, req.password);
+        const client = await pool.connect();
 
-        const result = await connection.execute(
-            `SELECT granted_role FROM user_role_privs`
-        );
+        // En PostgreSQL, consultamos los roles del usuario actual
+        const result = await client.query(`
+            SELECT rolname 
+            FROM pg_roles 
+            WHERE pg_has_role(current_user, rolname, 'member')
+        `);
 
-        await connection.close();
+        client.release();
+        await pool.end();
 
-        // Si la conexión es exitosa, se genera un token
-        console.log(`El usuario ${req.user} solicitó los roles de la BDD Exitosamente`);
+        console.log(`El usuario ${req.user} solicitó los roles de PostgreSQL exitosamente`);
 
-        res.json(result.rows.map(row => row[0]));
+        res.json(result.rows.map(row => row.rolname));
     } catch (err) {
-        // Manejo simple por código de error
-        console.error('Error al solicitar roles a Oracle:\n', err);
+        console.error('Error al solicitar roles a PostgreSQL:\n', err);
         res.status(500).json({
-            error: 'Error al solicitar roles a Oracle',
+            error: 'Error al solicitar roles a PostgreSQL',
             details: err.message
         });
     }
 });
 
 api.get('/tablas', verificar, async (req, res) => {
+    let client;
     try {
-        const connection = await oracledb.getConnection({
-            user: req.user,
-            password: req.password,
-            connectString: process.env.ORACLE_CONNECT_STRING
+        const pool = getPool(req.user, req.password);
+        client = await pool.connect();
+
+        // Consultar todas las tablas y privilegios del usuario actual
+        const result = await client.query(`
+            SELECT 
+                table_schema as owner,
+                table_name, 
+                privilege_type 
+            FROM information_schema.role_table_grants
+            WHERE grantee = current_user 
+            AND table_schema NOT IN ('information_schema', 'pg_catalog')
+            ORDER BY table_schema, table_name, privilege_type
+        `);
+
+        // Agrupar los privilegios por tabla
+        const tablesMap = new Map();
+
+        result.rows.forEach(row => {
+            const key = `${row.owner}.${row.table_name}`;
+            
+            if (!tablesMap.has(key)) {
+                tablesMap.set(key, {
+                    owner: row.owner,
+                    table_name: row.table_name,
+                    privileges: {
+                        select: false,
+                        insert: false,
+                        update: false,
+                        delete: false
+                    }
+                });
+            }
+
+            const table = tablesMap.get(key);
+            
+            // Mapear los tipos de privilegios de PostgreSQL a formato esperado
+            switch (row.privilege_type.toLowerCase()) {
+                case 'select':
+                    table.privileges.select = true;
+                    break;
+                case 'insert':
+                    table.privileges.insert = true;
+                    break;
+                case 'update':
+                    table.privileges.update = true;
+                    break;
+                case 'delete':
+                    table.privileges.delete = true;
+                    break;
+                case 'truncate':
+                    // PostgreSQL tiene TRUNCATE, pero no lo incluimos en el formato Oracle
+                    break;
+                case 'references':
+                    // PostgreSQL tiene REFERENCES, pero no lo incluimos en el formato Oracle
+                    break;
+                case 'trigger':
+                    // PostgreSQL tiene TRIGGER, pero no lo incluimos en el formato Oracle
+                    break;
+            }
         });
 
-        const result = await connection.execute(
-            `SELECT 
-                t.owner,
-                t.table_name,
-                LISTAGG(p.privilege, ', ') 
-                WITHIN GROUP (ORDER BY p.privilege) AS privileges
-            FROM all_tables t
-            JOIN all_tab_privs p 
-            ON t.table_name = p.table_name
-            WHERE p.grantee = USER
-            GROUP BY t.owner, t.table_name
-            ORDER BY t.owner, t.table_name`
-        );
+        // Convertir el Map a array
+        const tables = Array.from(tablesMap.values());
 
-        await connection.close();
-
-        // Si la conexión es exitosa, se genera un token
-        console.log(`El usuario ${req.user} solicitó las tablas de la BDD Exitosamente`);
-
-        const tablas = [];
-
-        for (let i = 0; i < result.rows.length; i++) {
-            let row = result.rows[i];
-            tablas.push({
-                owner: row[0],
-                table_name: row[1],
-                privileges: {
-                    select: row[2].includes('SELECT'),
-                    insert: row[2].includes('INSERT'),
-                    update: row[2].includes('UPDATE'),
-                    delete: row[2].includes('DELETE')
-                }
-            })
-        }
+        console.log(`El usuario ${req.user} solicitó las tablas de PostgreSQL exitosamente`);
 
         res.json({
-            result: tablas
+            result: tables
         });
+
     } catch (err) {
-        // Manejo simple por código de error
-        console.error('Error al solicitar tablas a Oracle:\n', err);
+        console.error('Error al solicitar tablas a PostgreSQL:\n', err);
         res.status(500).json({
-            error: 'Error al solicitar tablas a Oracle',
+            error: 'Error al solicitar tablas a PostgreSQL',
             details: err.message
         });
+    } finally {
+        if (client) {
+            client.release();
+        }
     }
 });
 
@@ -172,37 +288,90 @@ api.get('/types', verificar, async (req, res) => {
     }
 
     try {
-        const connection = await oracledb.getConnection({
-            user: req.user,
-            password: req.password,
-            connectString: process.env.ORACLE_CONNECT_STRING
+        const pool = getPool(req.user, req.password);
+        const client = await pool.connect();
+
+        // En PostgreSQL, consultamos los tipos de columnas con información detallada
+        const result = await client.query(`
+            SELECT 
+                column_name, 
+                data_type,
+                udt_name,
+                character_maximum_length,
+                numeric_precision, 
+                numeric_scale,
+                is_nullable,
+                column_default,
+                ordinal_position
+            FROM information_schema.columns
+            WHERE table_schema = $1 AND table_name = $2
+            ORDER BY ordinal_position
+        `, [owner.toLowerCase(), table_name.toLowerCase()]);
+
+        client.release();
+        await pool.end();
+
+        console.log(`El usuario ${req.user} solicitó los tipos de columnas para ${owner}.${table_name} de PostgreSQL exitosamente`);
+
+        // Formatea la respuesta para que sea compatible con Oracle
+        const columns = result.rows.map(row => {
+            let type = row.udt_name.toUpperCase();
+
+            // Mapear tipos de PostgreSQL a tipos compatibles con Oracle
+            switch (type) {
+                case 'VARCHAR':
+                    type = 'VARCHAR2';
+                    break;
+                case 'BPCHAR':
+                    type = 'CHAR';
+                    break;
+                case 'INT4':
+                    type = 'NUMBER';
+                    break;
+                case 'INT8':
+                    type = 'NUMBER';
+                    break;
+                case 'FLOAT8':
+                    type = 'NUMBER';
+                    break;
+                case 'NUMERIC':
+                    type = 'NUMBER';
+                    break;
+                case 'TIMESTAMP':
+                    type = 'DATE';
+                    break;
+                case 'TIMESTAMPTZ':
+                    type = 'TIMESTAMP WITH TIME ZONE';
+                    break;
+                case 'TEXT':
+                    type = 'CLOB';
+                    break;
+                case 'BOOL':
+                    type = 'CHAR';
+                    break;
+            }
+
+            return {
+                name: row.column_name.toUpperCase(),
+                type: type,
+                length: row.character_maximum_length || (row.numeric_precision ? row.numeric_precision : null),
+                precision: row.numeric_precision,
+                scale: row.numeric_scale,
+                nullable: row.is_nullable === 'YES' ? 'Y' : 'N',
+                default_value: row.column_default
+            };
+        }); res.json({
+            columns,
+            table_info: {
+                schema: owner.toUpperCase(),
+                table_name: table_name.toUpperCase(),
+                column_count: columns.length
+            }
         });
-
-        // Consulta los nombres y tipos de columnas de la tabla
-        const result = await connection.execute(
-            `SELECT COLUMN_NAME, DATA_TYPE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE
-             FROM ALL_TAB_COLUMNS
-             WHERE OWNER = :owner AND TABLE_NAME = :table_name
-             ORDER BY COLUMN_ID`,
-            { owner: owner.toUpperCase(), table_name: table_name.toUpperCase() }
-        );
-
-        await connection.close();
-
-        // Formatea la respuesta
-        const columns = result.rows.map(row => ({
-            name: row[0],
-            type: row[1],
-            length: row[2],
-            precision: row[3],
-            scale: row[4]
-        }));
-
-        res.json({ columns });
     } catch (err) {
-        console.error('Error al solicitar tipos de columnas a Oracle:\n', err);
+        console.error('Error al solicitar tipos de columnas a PostgreSQL:\n', err);
         res.status(500).json({
-            error: 'Error al solicitar tipos de columnas a Oracle',
+            error: 'Error al solicitar tipos de columnas a PostgreSQL',
             details: err.message
         });
     }
@@ -218,179 +387,77 @@ api.get('/tabla', verificar, async (req, res) => {
     }
 
     try {
-        const connection = await oracledb.getConnection({
-            user: req.user,
-            password: req.password,
-            connectString: process.env.ORACLE_CONNECT_STRING
-        });
+        const pool = getPool(req.user, req.password);
+        const client = await pool.connect();
 
-        const result = await connection.execute(
-            `SELECT * FROM ${owner}.${table_name}`
-        );
+        // Verificar primero si el usuario tiene acceso a la tabla
+        const accessCheck = await client.query(`
+            SELECT has_table_privilege($1, $2, 'SELECT') as has_access
+        `, [req.user, `"${owner}"."${table_name}"`]);
 
-        await connection.close();
+        if (!accessCheck.rows[0].has_access) {
+            client.release();
+            await pool.end();
+            return res.status(403).json({
+                error: 'No tienes permisos para acceder a esta tabla'
+            });
+        }
 
-        // metaData ya trae el nombre y el tipo de dato
-        const columns = result.metaData.map(col => ({
-            name: col.name,
-            type: col.dbTypeName // o col.dbType para el código numérico
+        // Obtener estructura de columnas con información detallada
+        const columnResult = await client.query(`
+            SELECT 
+                column_name, 
+                data_type,
+                udt_name,
+                character_maximum_length,
+                numeric_precision,
+                numeric_scale,
+                is_nullable,
+                ordinal_position
+            FROM information_schema.columns
+            WHERE table_schema = $1 AND table_name = $2
+            ORDER BY ordinal_position
+        `, [owner.toLowerCase(), table_name.toLowerCase()]);
+
+        // Obtener datos de la tabla (máximo 1000 filas por rendimiento)
+        const dataResult = await client.query(`
+            SELECT * FROM "${owner}"."${table_name}" 
+            LIMIT 1000
+        `);
+
+        client.release();
+        await pool.end();
+
+        console.log(`El usuario ${req.user} consultó la tabla ${owner}.${table_name} exitosamente`);
+
+        const columns = columnResult.rows.map(col => ({
+            name: col.column_name.toUpperCase(),
+            type: col.udt_name.toUpperCase(),
+            length: col.character_maximum_length,
+            precision: col.numeric_precision,
+            scale: col.numeric_scale,
+            nullable: col.is_nullable === 'YES' ? 'Y' : 'N'
         }));
 
-        res.json({
-            columns, // ahora es un array de objetos { name, type }
-            data: result.rows
+        // Convertir datos al formato Oracle (arrays de arrays)
+        const rows = dataResult.rows.map(row => {
+            return columnResult.rows.map(col => row[col.column_name]);
         });
-    } catch (err) {
-        console.error('Error al solicitar tablas a Oracle:\n', err);
-        res.status(500).json({
-            error: 'Error al solicitar tablas a Oracle',
-            details: err.message
-        });
-    }
-});
-
-api.post('/tabla', verificar, async (req, res) => {
-    let { owner, table_name, columns, data } = req.body;
-
-    // Asegura que columns sea array
-    if (!Array.isArray(columns)) {
-        if (typeof columns === 'string') {
-            columns = columns.split(',').map(col => col.trim());
-        } else {
-            return res.status(400).json({ error: 'columns debe ser un array o string separado por comas' });
-        }
-    }
-
-    // Asegura que data sea array de arrays
-    if (!Array.isArray(data[0])) {
-        data = [data];
-    }
-
-    if (!owner || !table_name || !data || !columns) {
-        return res.status(400).json({
-            error: 'Faltan parámetros owner, table_name, columns o data'
-        });
-    }
-
-    try {
-        const connection = await oracledb.getConnection({
-            user: req.user,
-            password: req.password,
-            connectString: process.env.ORACLE_CONNECT_STRING
-        });
-
-        // Cambia los placeholders a :1, :2, :3, ...
-        const sql = `INSERT INTO ${owner}.${table_name} (${columns.join(', ')}) VALUES (${columns.map((_, i) => `:${i + 1}`).join(', ')})`;
-
-        await connection.executeMany(sql, data);
-
-        await connection.commit();
-        await connection.close();
-
-        console.log(`El usuario ${req.user} insertó datos en la tabla '${owner}.${table_name}' de la BDD Exitosamente`);
 
         res.json({
-            message: 'Datos insertados correctamente'
+            table_info: {
+                schema: owner.toUpperCase(),
+                table_name: table_name.toUpperCase(),
+                row_count: dataResult.rows.length,
+                columns: columns
+            },
+            columns: columnResult.rows.map(col => col.column_name.toUpperCase()),
+            data: rows
         });
     } catch (err) {
-        console.error('Error al insertar datos en Oracle:\n', err);
+        console.error('Error al solicitar tabla a PostgreSQL:\n', err);
         res.status(500).json({
-            error: 'Error al insertar datos en Oracle',
-            details: err.message
-        });
-    }
-});
-
-api.put('/tabla', verificar, async (req, res) => {
-    let { owner, table_name, columns, data, key_column, key_data } = req.body;
-
-    console.log(req.body);
-
-    if (!owner || !table_name || !data || !columns || !key_column) {
-        return res.status(400).json({
-            error: 'Faltan parámetros owner, table_name, columns, data o key_column'
-        });
-    }
-
-    console.log(data);
-
-    // Si data es un solo array (una fila), conviértelo en array de arrays
-    if (!Array.isArray(data[0])) {
-        data.push(key_data);
-        data = [data];
-    }
-
-    console.log(data);
-
-    // El SQL debe tener un placeholder para cada columna y uno para la clave
-    const setClause = columns.map((col, i) => `${col} = :${i + 1}`).join(', ');
-    const whereClause = `${key_column} = :${columns.length + 1}`;
-    const sql = `UPDATE ${owner}.${table_name} SET ${setClause} WHERE ${whereClause}`;
-
-    try {
-        const connection = await oracledb.getConnection({
-            user: req.user,
-            password: req.password,
-            connectString: process.env.ORACLE_CONNECT_STRING
-        });
-
-        await connection.executeMany(sql, data);
-
-        await connection.commit();
-        await connection.close();
-
-        res.json({
-            message: 'Datos actualizados correctamente'
-        });
-    } catch (err) {
-        console.error('Error al actualizar datos en Oracle:\n', err);
-        res.status(500).json({
-            error: 'Error al actualizar datos en Oracle',
-            details: err.message
-        });
-    }
-});
-
-api.delete('/tabla', verificar, async (req, res) => {
-    let { owner, table_name, key_column, key_data } = req.body;
-
-    if (!owner || !table_name || !key_data || !key_column) {
-        return res.status(400).json({
-            error: 'Faltan parámetros owner, table_name, key_column o key_data'
-        });
-    }
-
-    // Si key_data es un solo valor, conviértelo en array
-    if (!Array.isArray(key_data)) {
-        key_data = [key_data];
-    }
-
-    // Convierte a array de arrays para executeMany
-    const binds = key_data.map(val => [val]);
-
-    try {
-        const connection = await oracledb.getConnection({
-            user: req.user,
-            password: req.password,
-            connectString: process.env.ORACLE_CONNECT_STRING
-        });
-
-        const sql = `DELETE FROM ${owner}.${table_name} WHERE ${key_column} = :1`;
-
-        await connection.executeMany(sql, binds);
-
-        await connection.commit();
-        await connection.close();
-
-        console.log(`El usuario ${req.user} eliminó datos en la tabla '${owner}.${table_name}' de la BDD Exitosamente`);
-
-        res.json({
-            message: 'Datos eliminados correctamente'
-        });
-    } catch (err) {
-        console.error('Error al eliminar datos en Oracle:\n', err);
-        res.status(500).json({
-            error: 'Error al eliminar datos en Oracle',
+            error: 'Error al solicitar tabla a PostgreSQL',
             details: err.message
         });
     }
@@ -398,58 +465,54 @@ api.delete('/tabla', verificar, async (req, res) => {
 
 api.post('/script/ejecutar-personalizado', verificar, async (req, res) => {
     try {
-        const connection = await oracledb.getConnection({
-            user: req.user,
-            password: req.password,
-            connectString: process.env.ORACLE_CONNECT_STRING
-        });
+        const pool = getPool(req.user, req.password);
+        const client = await pool.connect();
 
         const query = req.body.query.trim();
 
-        // Detectar si es PL/SQL (contiene DECLARE, BEGIN, o bloques)
-        const isPLSQL = /^(DECLARE|BEGIN)\s/i.test(query) ||
+        // Detectar si es PL/pgSQL (contiene DO, DECLARE, o bloques)
+        const isPLpgSQL = /^(DO|DECLARE)\s/i.test(query) ||
+            /DO\s*\$\$[\s\S]*\$\$\s*;?\s*$/i.test(query) ||
             /BEGIN\s[\s\S]*END\s*;?\s*$/i.test(query);
 
-        if (isPLSQL) {
-            // Configurar SERVEROUTPUT para PL/SQL
-            await connection.execute(`BEGIN DBMS_OUTPUT.ENABLE(1000000); END;`);
+        if (isPLpgSQL) {
+            // Para PL/pgSQL, ejecutamos y capturamos los notices
+            let notices = [];
 
-            // Ejecutar el script PL/SQL
-            await connection.execute(query);
+            // Capturar los RAISE NOTICE
+            client.on('notice', (notice) => {
+                notices.push(notice.message);
+            });
 
-            // Recuperar el output de DBMS_OUTPUT
-            const result = await connection.execute(`
-                DECLARE
-                    lines DBMS_OUTPUT.CHARARR;
-                    num_lines INTEGER := 1000;
-                BEGIN
-                    DBMS_OUTPUT.GET_LINES(lines, num_lines);
-                    FOR i IN 1..num_lines LOOP
-                        IF lines(i) IS NOT NULL THEN
-                            :output := :output || lines(i) || CHR(10);
-                        END IF;
-                    END LOOP;
-                END;
-            `, { output: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000 } });
+            await client.query(query);
 
-            await connection.close();
+            client.release();
+            await pool.end();
 
-            console.log(`El usuario ${req.user} ejecutó el siguiente script PL/SQL\n${query}\n`); res.json({
-                message: 'Script PL/SQL ejecutado correctamente',
-                output: result.outBinds.output || 'No hay output'
+            console.log(`El usuario ${req.user} ejecutó el siguiente script PL/pgSQL\n${query}\n`);
+
+            res.json({
+                message: 'Script PL/pgSQL ejecutado correctamente',
+                output: notices.length > 0 ? notices.join('\n') : 'Script ejecutado sin mensajes de salida.'
             });
         } else {
             // Ejecutar como consulta SQL normal
-            const result = await connection.execute(query);
+            const result = await client.query(query);
 
-            await connection.close();
+            client.release();
+            await pool.end();
 
             console.log(`El usuario ${req.user} ejecutó la siguiente consulta SQL\n${query}\n`);
 
+            // Convertir al formato original (arrays de arrays)
+            const rows = result.rows.map(row => {
+                return result.fields.map(field => row[field.name]);
+            });
+
             res.json({
                 message: 'Consulta SQL ejecutada correctamente',
-                result: result.rows || [],
-                columns: result.metaData ? result.metaData.map(col => col.name) : []
+                result: rows,
+                columns: result.fields ? result.fields.map(field => field.name) : []
             });
         }
     } catch (err) {
@@ -463,120 +526,111 @@ api.post('/script/ejecutar-personalizado', verificar, async (req, res) => {
 
 api.get('/script/tiempo', verificar, async (req, res) => {
     try {
-        const connection = await oracledb.getConnection({
-            user: req.user,
-            password: req.password,
-            connectString: process.env.ORACLE_CONNECT_STRING
-        });        // Configurar SERVEROUTPUT
-        await connection.execute(`BEGIN DBMS_OUTPUT.ENABLE(1000000); END;`);
+        const pool = getPool(req.user, req.password);
+        const client = await pool.connect();
 
-        // Ejecutar el script principal
-        await connection.execute(`
+        // Capturar los notices
+        let notices = [];
+        client.on('notice', (notice) => {
+            notices.push(notice.message);
+        });
+
+        // Script migrado de PL/SQL a PL/pgSQL
+        const plpgsqlScript = `
+            DO $$
             DECLARE
                 -- Variables principales para fechas
-                v_fecha DATE := TO_DATE('2025-06-11', 'YYYY-MM-DD');
+                v_fecha DATE := '2025-06-11'::DATE;
                 v_proximo_dia DATE;
                 v_dia_anterior DATE;
-                v_anio NUMBER(4);
-                v_anio_anterior NUMBER(4);
-                v_anio_siguiente NUMBER(4);
-                v_bisiesto VARCHAR2(3) := 'No';
+                v_anio INTEGER;
+                v_anio_anterior INTEGER;
+                v_anio_siguiente INTEGER;
+                v_bisiesto VARCHAR(3) := 'No';
 
                 -- Variables para tipos de datos
-                v_char         CHAR(10) := 'TextoA';
-                v_varchar2     VARCHAR2(20) := 'Texto B';
-                v_number       NUMBER(10,2) := 12345.67;
-                v_integer      BINARY_INTEGER := -100;
-                v_date         DATE := TO_DATE('2025-06-11 10:30:00', 'YYYY-MM-DD HH24:MI:SS');
-                v_timestamp    TIMESTAMP := SYSTIMESTAMP;
-                v_tz           TIMESTAMP WITH TIME ZONE := FROM_TZ(TIMESTAMP '2025-06-11 10:30:00', 'UTC');
-                v_ltz          TIMESTAMP WITH LOCAL TIME ZONE := SYSTIMESTAMP;
-                v_interval_ym  INTERVAL YEAR(2) TO MONTH := INTERVAL '02-06' YEAR TO MONTH;
-                v_interval_ds  INTERVAL DAY(2) TO SECOND(6) := INTERVAL '05 12:30:45.123456' DAY TO SECOND;
+                v_char CHAR(10) := 'TextoA';
+                v_varchar VARCHAR(20) := 'Texto B';
+                v_numeric NUMERIC(10,2) := 12345.67;
+                v_integer INTEGER := -100;
+                v_timestamp_with_date TIMESTAMP := '2025-06-11 10:30:00'::TIMESTAMP;
+                v_timestamp_now TIMESTAMP := NOW();
+                v_timestamptz TIMESTAMPTZ := NOW();
+                v_interval_months INTERVAL := '2 years 6 months'::INTERVAL;
+                v_interval_days INTERVAL := '5 days 12 hours 30 minutes 45.123456 seconds'::INTERVAL;
             BEGIN
                 -- SECCIÓN 1: OPERACIONES CON FECHAS
-                DBMS_OUTPUT.PUT_LINE('============================================================================');
-                DBMS_OUTPUT.PUT_LINE('                           OPERACIONES CON FECHAS');
-                DBMS_OUTPUT.PUT_LINE('============================================================================');
+                RAISE NOTICE '============================================================================';
+                RAISE NOTICE '                           OPERACIONES CON FECHAS';
+                RAISE NOTICE '============================================================================';
                 
                 -- Cálculo de próximos y anteriores días
-                v_proximo_dia   := v_fecha + 1;
-                v_dia_anterior  := v_fecha - 1;
+                v_proximo_dia := v_fecha + INTERVAL '1 day';
+                v_dia_anterior := v_fecha - INTERVAL '1 day';
 
                 -- Extracción del año y cálculo de año anterior y siguiente
-                v_anio          := EXTRACT(YEAR FROM v_fecha);
+                v_anio := EXTRACT(YEAR FROM v_fecha);
                 v_anio_anterior := v_anio - 1;
                 v_anio_siguiente := v_anio + 1;
 
                 -- Comprobación de año bisiesto
-                IF MOD(v_anio, 4) = 0 AND (MOD(v_anio, 100) != 0 OR MOD(v_anio, 400) = 0) THEN
+                IF (v_anio % 4 = 0 AND v_anio % 100 != 0) OR (v_anio % 400 = 0) THEN
                     v_bisiesto := 'Sí';
                 END IF;
 
                 -- Mostrar resultados de fechas
-                DBMS_OUTPUT.PUT_LINE('Fecha original:         ' || TO_CHAR(v_fecha, 'YYYY-MM-DD'));
-                DBMS_OUTPUT.PUT_LINE('Día anterior:           ' || TO_CHAR(v_dia_anterior, 'YYYY-MM-DD'));
-                DBMS_OUTPUT.PUT_LINE('Próximo día:            ' || TO_CHAR(v_proximo_dia, 'YYYY-MM-DD'));
-                DBMS_OUTPUT.PUT_LINE('Año actual:             ' || v_anio);
-                DBMS_OUTPUT.PUT_LINE('Año anterior:           ' || v_anio_anterior);
-                DBMS_OUTPUT.PUT_LINE('Año siguiente:          ' || v_anio_siguiente);
-                DBMS_OUTPUT.PUT_LINE('¿Es bisiesto?:          ' || v_bisiesto);
+                RAISE NOTICE 'Fecha original:         %', v_fecha;
+                RAISE NOTICE 'Día anterior:           %', v_dia_anterior;
+                RAISE NOTICE 'Próximo día:            %', v_proximo_dia;
+                RAISE NOTICE 'Año actual:             %', v_anio;
+                RAISE NOTICE 'Año anterior:           %', v_anio_anterior;
+                RAISE NOTICE 'Año siguiente:          %', v_anio_siguiente;
+                RAISE NOTICE '¿Es bisiesto?:          %', v_bisiesto;
 
                 -- Otras operaciones comunes con fechas
-                DBMS_OUTPUT.PUT_LINE('Fecha más 1 semana:     ' || TO_CHAR(v_fecha + 7, 'YYYY-MM-DD'));
-                DBMS_OUTPUT.PUT_LINE('Fecha más 1 mes:        ' || TO_CHAR(ADD_MONTHS(v_fecha, 1), 'YYYY-MM-DD'));
-                DBMS_OUTPUT.PUT_LINE('Fecha más 1 año:        ' || TO_CHAR(ADD_MONTHS(v_fecha, 12), 'YYYY-MM-DD'));
-                DBMS_OUTPUT.PUT_LINE('Último día del mes:     ' || TO_CHAR(LAST_DAY(v_fecha), 'YYYY-MM-DD'));
+                RAISE NOTICE 'Fecha más 1 semana:     %', v_fecha + INTERVAL '7 days';
+                RAISE NOTICE 'Fecha más 1 mes:        %', v_fecha + INTERVAL '1 month';
+                RAISE NOTICE 'Fecha más 1 año:        %', v_fecha + INTERVAL '1 year';
+                RAISE NOTICE 'Último día del mes:     %', (DATE_TRUNC('month', v_fecha) + INTERVAL '1 month - 1 day')::DATE;
 
                 -- SECCIÓN 2: TIPOS DE DATOS
-                DBMS_OUTPUT.PUT_LINE('');
-                DBMS_OUTPUT.PUT_LINE('================================================================================');
-                DBMS_OUTPUT.PUT_LINE('                            TIPOS DE DATOS ORACLE');
-                DBMS_OUTPUT.PUT_LINE('================================================================================');
+                RAISE NOTICE '';
+                RAISE NOTICE '================================================================================';
+                RAISE NOTICE '                            TIPOS DE DATOS POSTGRESQL';
+                RAISE NOTICE '================================================================================';
 
-                -- Cabecera de la tabla
-                DBMS_OUTPUT.PUT_LINE(RPAD('TIPO DE DATO', 30) || RPAD('VALOR', 50));
-                DBMS_OUTPUT.PUT_LINE(RPAD('-', 80, '-'));
-
-                -- Datos formateados como tabla
-                DBMS_OUTPUT.PUT_LINE(RPAD('CHAR', 30) || RPAD(v_char, 50));
-                DBMS_OUTPUT.PUT_LINE(RPAD('VARCHAR2', 30) || RPAD(v_varchar2, 50));
-                DBMS_OUTPUT.PUT_LINE(RPAD('NUMBER', 30) || RPAD(TO_CHAR(v_number), 50));
-                DBMS_OUTPUT.PUT_LINE(RPAD('BINARY_INTEGER', 30) || RPAD(TO_CHAR(v_integer), 50));
-                DBMS_OUTPUT.PUT_LINE(RPAD('DATE', 30) || RPAD(TO_CHAR(v_date, 'YYYY-MM-DD HH24:MI:SS'), 50));
-                DBMS_OUTPUT.PUT_LINE(RPAD('TIMESTAMP', 30) || RPAD(TO_CHAR(v_timestamp, 'YYYY-MM-DD HH24:MI:SS.FF'), 50));
-                DBMS_OUTPUT.PUT_LINE(RPAD('TIMESTAMP WITH TIME ZONE', 30) || RPAD(TO_CHAR(v_tz, 'YYYY-MM-DD HH24:MI:SS.FF TZR'), 50));
-                DBMS_OUTPUT.PUT_LINE(RPAD('TIMESTAMP WITH LOCAL TIME ZONE', 30) || RPAD(TO_CHAR(v_ltz, 'YYYY-MM-DD HH24:MI:SS.FF'), 50));
-                DBMS_OUTPUT.PUT_LINE(RPAD('INTERVAL YEAR TO MONTH', 30) || RPAD(TO_CHAR(v_interval_ym), 50));
-                DBMS_OUTPUT.PUT_LINE(RPAD('INTERVAL DAY TO SECOND', 30) || RPAD(TO_CHAR(v_interval_ds), 50));
+                -- Mostrar tipos de datos (PostgreSQL no tiene RPAD nativo, usamos alternativa)
+                RAISE NOTICE 'TIPO DE DATO                   VALOR';
+                RAISE NOTICE '--------------------------------------------------------------------------------';
+                RAISE NOTICE 'CHAR                           %', v_char;
+                RAISE NOTICE 'VARCHAR                        %', v_varchar;
+                RAISE NOTICE 'NUMERIC                        %', v_numeric;
+                RAISE NOTICE 'INTEGER                        %', v_integer;
+                RAISE NOTICE 'TIMESTAMP                      %', v_timestamp_with_date;
+                RAISE NOTICE 'TIMESTAMP (NOW)                %', v_timestamp_now;
+                RAISE NOTICE 'TIMESTAMPTZ                    %', v_timestamptz;
+                RAISE NOTICE 'INTERVAL (YEARS-MONTHS)        %', v_interval_months;
+                RAISE NOTICE 'INTERVAL (DAYS-SECONDS)        %', v_interval_days;
 
                 -- Línea final
-                DBMS_OUTPUT.PUT_LINE(RPAD('-', 80, '-'));
-                DBMS_OUTPUT.PUT_LINE('');
-                DBMS_OUTPUT.PUT_LINE('================================================================================');
-                DBMS_OUTPUT.PUT_LINE('                              FIN DEL PROGRAMA');
-                DBMS_OUTPUT.PUT_LINE('================================================================================');
-            END;
-        `);
+                RAISE NOTICE '--------------------------------------------------------------------------------';
+                RAISE NOTICE '';
+                RAISE NOTICE '================================================================================';
+                RAISE NOTICE '                              FIN DEL PROGRAMA';
+                RAISE NOTICE '================================================================================';
+            END $$;
+        `;
 
-        // Recuperar el output de DBMS_OUTPUT
-        const result = await connection.execute(`
-            DECLARE
-                lines DBMS_OUTPUT.CHARARR;
-                num_lines INTEGER := 1000;
-            BEGIN
-                DBMS_OUTPUT.GET_LINES(lines, num_lines);
-                FOR i IN 1..num_lines LOOP
-                    IF lines(i) IS NOT NULL THEN
-                        :output := :output || lines(i) || CHR(10);
-                    END IF;
-                END LOOP;
-            END;
-        `, { output: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000 } }); await connection.close();
+        await client.query(plpgsqlScript);
 
-        console.log(`El usuario ${req.user} ejecutó el script combinado de tiempo y tipos de datos`); res.json({
-            message: 'Script ejecutado correctamente',
-            output: result.outBinds.output || 'No hay output'
+        client.release();
+        await pool.end();
+
+        console.log(`El usuario ${req.user} ejecutó el script combinado de tiempo y tipos de datos`);
+
+        res.json({
+            message: 'Script PL/pgSQL ejecutado correctamente',
+            output: notices.length > 0 ? notices.join('\n') : 'Script ejecutado sin mensajes de salida.'
         });
     } catch (err) {
         console.error('Error al ejecutar el script combinado:\n', err);
@@ -589,47 +643,40 @@ api.get('/script/tiempo', verificar, async (req, res) => {
 
 api.get('/script/total-empleados-hr', verificar, async (req, res) => {
     try {
-        const connection = await oracledb.getConnection({
-            user: req.user,
-            password: req.password,
-            connectString: process.env.ORACLE_CONNECT_STRING
-        });        // Configurar SERVEROUTPUT
-        await connection.execute(`BEGIN DBMS_OUTPUT.ENABLE(1000000); END;`);
+        const pool = getPool(req.user, req.password);
+        const client = await pool.connect();
 
-        // Ejecutar el script principal
-        await connection.execute(`
+        // Capturar los notices
+        let notices = [];
+        client.on('notice', (notice) => {
+            notices.push(notice.message);
+        });
+
+        // Script migrado para PostgreSQL - asumiendo que existe un esquema 'hr' con tabla 'employees'
+        const plpgsqlScript = `
+            DO $$
             DECLARE
-                v_total_empleados NUMBER;
+                v_total_empleados INTEGER;
             BEGIN
                 -- Obtener el total de empleados
                 SELECT COUNT(*) INTO v_total_empleados
-                FROM HR.EMPLOYEES;
+                FROM hr.employees;
 
                 -- Mostrar el resultado
-                DBMS_OUTPUT.PUT_LINE('Total de empleados: ' || v_total_empleados);
-            END;
-        `);
+                RAISE NOTICE 'Total de empleados: %', v_total_empleados;
+            END $$;
+        `;
 
-        // Recuperar el output de DBMS_OUTPUT
-        const result = await connection.execute(`
-            DECLARE
-                lines DBMS_OUTPUT.CHARARR;
-                num_lines INTEGER := 1000;
-            BEGIN
-                DBMS_OUTPUT.GET_LINES(lines, num_lines);
-                FOR i IN 1..num_lines LOOP
-                    IF lines(i) IS NOT NULL THEN
-                        :output := :output || lines(i) || CHR(10);
-                    END IF;
-                END LOOP;
-            END;
-        `, { output: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000 } });
+        await client.query(plpgsqlScript);
 
-        await connection.close();
+        client.release();
+        await pool.end();
 
-        console.log(`El usuario ${req.user} ejecutó el script de total de empleados HR`); res.json({
+        console.log(`El usuario ${req.user} ejecutó el script de total de empleados HR`);
+
+        res.json({
             message: 'Script de total empleados ejecutado correctamente',
-            output: result.outBinds.output || 'No hay output'
+            output: notices.length > 0 ? notices.join('\n') : 'Script ejecutado sin mensajes de salida.'
         });
     } catch (err) {
         console.error('Error al ejecutar el script de total empleados:\n', err);
@@ -642,54 +689,78 @@ api.get('/script/total-empleados-hr', verificar, async (req, res) => {
 
 api.get('/script/fecha-creacion-base', verificar, async (req, res) => {
     try {
-        const connection = await oracledb.getConnection({
-            user: req.user,
-            password: req.password,
-            connectString: process.env.ORACLE_CONNECT_STRING
-        });        // Configurar SERVEROUTPUT
-        await connection.execute(`BEGIN DBMS_OUTPUT.ENABLE(1000000); END;`);
+        const pool = getPool(req.user, req.password);
+        const client = await pool.connect();
 
-        // Ejecutar el script principal
-        await connection.execute(`
+        // Capturar los notices
+        let notices = [];
+        client.on('notice', (notice) => {
+            notices.push(notice.message);
+        });
+
+        // Script migrado para PostgreSQL - obtener información de la base de datos
+        const plpgsqlScript = `
+            DO $$
             DECLARE
-                v_nombre_bd   VARCHAR2(50);
-                v_fecha_crea  DATE;
+                v_nombre_bd TEXT;
+                v_fecha_crea TIMESTAMP;
             BEGIN
-                -- Obtener nombre y fecha de creación de la BD
-                SELECT NAME, CREATED INTO v_nombre_bd, v_fecha_crea
-                FROM V$DATABASE;
+                -- Obtener nombre de la base de datos actual
+                SELECT current_database() INTO v_nombre_bd;
+                
+                -- En PostgreSQL, obtener la fecha de creación es más complejo
+                -- Usaremos la fecha de creación del directorio de datos como aproximación
+                SELECT pg_postmaster_start_time() INTO v_fecha_crea;
 
                 -- Mostrar los valores
-                DBMS_OUTPUT.PUT_LINE('Nombre de la base de datos: ' || v_nombre_bd);
-                DBMS_OUTPUT.PUT_LINE('Fecha de creación:          ' || TO_CHAR(v_fecha_crea, 'YYYY-MM-DD HH24:MI:SS'));
-            END;
-        `);
+                RAISE NOTICE 'Nombre de la base de datos: %', v_nombre_bd;
+                RAISE NOTICE 'Fecha de inicio del servidor: %', v_fecha_crea;
+            END $$;
+        `;
 
-        // Recuperar el output de DBMS_OUTPUT
-        const result = await connection.execute(`
-            DECLARE
-                lines DBMS_OUTPUT.CHARARR;
-                num_lines INTEGER := 1000;
-            BEGIN
-                DBMS_OUTPUT.GET_LINES(lines, num_lines);
-                FOR i IN 1..num_lines LOOP
-                    IF lines(i) IS NOT NULL THEN
-                        :output := :output || lines(i) || CHR(10);
-                    END IF;
-                END LOOP;
-            END;
-        `, { output: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 32000 } });
+        await client.query(plpgsqlScript);
 
-        await connection.close();
+        client.release();
+        await pool.end();
 
-        console.log(`El usuario ${req.user} ejecutó el script de fecha de creación de la base de datos`); res.json({
-            message: 'Script de fecha de creación ejecutado correctamente',
-            output: result.outBinds.output || 'No hay output'
+        console.log(`El usuario ${req.user} ejecutó el script de información de la base de datos`);
+
+        res.json({
+            message: 'Script de información de base de datos ejecutado correctamente',
+            output: notices.length > 0 ? notices.join('\n') : 'Script ejecutado sin mensajes de salida.'
         });
     } catch (err) {
-        console.error('Error al ejecutar el script de fecha de creación:\n', err);
+        console.error('Error al ejecutar el script de información de base de datos:\n', err);
         res.status(500).json({
-            error: 'Error al ejecutar el script de fecha de creación',
+            error: 'Error al ejecutar el script de información de base de datos',
+            details: err.message
+        });
+    }
+});
+
+api.get('/test', (req, res) => {
+    res.json({ message: true });
+});
+
+// Endpoint adicional para testing de PostgreSQL
+api.get('/test/connection', verificar, async (req, res) => {
+    try {
+        const pool = getPool(req.user, req.password);
+        const client = await pool.connect();
+
+        const result = await client.query('SELECT current_database() as database, current_user as user, NOW() as timestamp');
+
+        client.release();
+        await pool.end();
+
+        res.json({
+            message: 'Conexión PostgreSQL exitosa',
+            data: result.rows[0]
+        });
+    } catch (err) {
+        console.error('Error en test de conexión:', err);
+        res.status(500).json({
+            error: 'Error en test de conexión',
             details: err.message
         });
     }
