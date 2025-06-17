@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../services/auth.service';
-import { LayoutControlService } from '../services/layout-control.service'; // NUEVA IMPORTACIÓN
+import { LayoutControlService } from '../services/layout-control.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 
