@@ -11,6 +11,8 @@ const verificar = require('../config/auth');
 const { getPool, adminPool } = require('../config/database');
 
 //#endregion
+
+
 api.post('/login', async (req, res) => {
     const { user, password } = req.body;
 
@@ -279,11 +281,11 @@ api.get('/tablas', verificar, async (req, res) => {
 });
 
 api.get('/types', verificar, async (req, res) => {
-    const { owner, table_name } = req.query;
+    const { table_name } = req.query;
 
-    if (!owner || !table_name) {
+    if (!table_name) {
         return res.status(400).json({
-            error: 'Faltan parámetros owner o table_name'
+            error: 'Falta el parámetro table_name'
         });
     }
 
@@ -304,14 +306,14 @@ api.get('/types', verificar, async (req, res) => {
                 column_default,
                 ordinal_position
             FROM information_schema.columns
-            WHERE table_schema = $1 AND table_name = $2
+            WHERE table_name = $1
             ORDER BY ordinal_position
-        `, [owner.toLowerCase(), table_name.toLowerCase()]);
+        `, [table_name.toLowerCase()]);
 
         client.release();
         await pool.end();
 
-        console.log(`El usuario ${req.user} solicitó los tipos de columnas para ${owner}.${table_name} de PostgreSQL exitosamente`);
+        console.log(`El usuario ${req.user} solicitó los tipos de columnas ${table_name} de PostgreSQL exitosamente`);
 
         // Formatea la respuesta para que sea compatible con Oracle
         const columns = result.rows.map(row => {
@@ -363,7 +365,6 @@ api.get('/types', verificar, async (req, res) => {
         }); res.json({
             columns,
             table_info: {
-                schema: owner.toUpperCase(),
                 table_name: table_name.toUpperCase(),
                 column_count: columns.length
             }
@@ -378,11 +379,11 @@ api.get('/types', verificar, async (req, res) => {
 });
 
 api.get('/tabla', verificar, async (req, res) => {
-    const { owner, table_name } = req.query;
+    const { table_name } = req.query;
 
-    if (!owner || !table_name) {
+    if (!table_name) {
         return res.status(400).json({
-            error: 'Faltan parámetros owner o table_name'
+            error: 'Falta el parámetro table_name'
         });
     }
 
@@ -393,7 +394,7 @@ api.get('/tabla', verificar, async (req, res) => {
         // Verificar primero si el usuario tiene acceso a la tabla
         const accessCheck = await client.query(`
             SELECT has_table_privilege($1, $2, 'SELECT') as has_access
-        `, [req.user, `"${owner}"."${table_name}"`]);
+        `, [req.user, `"${table_name}"`]);
 
         if (!accessCheck.rows[0].has_access) {
             client.release();
@@ -415,20 +416,20 @@ api.get('/tabla', verificar, async (req, res) => {
                 is_nullable,
                 ordinal_position
             FROM information_schema.columns
-            WHERE table_schema = $1 AND table_name = $2
+            WHERE table_name = $1
             ORDER BY ordinal_position
-        `, [owner.toLowerCase(), table_name.toLowerCase()]);
+        `, [table_name.toLowerCase()]);
 
         // Obtener datos de la tabla (máximo 1000 filas por rendimiento)
         const dataResult = await client.query(`
-            SELECT * FROM "${owner}"."${table_name}" 
+            SELECT * FROM "${table_name}" 
             LIMIT 1000
         `);
 
         client.release();
         await pool.end();
 
-        console.log(`El usuario ${req.user} consultó la tabla ${owner}.${table_name} exitosamente`);
+        console.log(`El usuario ${req.user} consultó la tabla ${table_name} exitosamente`);
 
         const columns = columnResult.rows.map(col => ({
             name: col.column_name.toUpperCase(),
@@ -446,7 +447,6 @@ api.get('/tabla', verificar, async (req, res) => {
 
         res.json({
             table_info: {
-                schema: owner.toUpperCase(),
                 table_name: table_name.toUpperCase(),
                 row_count: dataResult.rows.length,
                 columns: columns
@@ -660,7 +660,7 @@ api.get('/script/total-empleados-hr', verificar, async (req, res) => {
             BEGIN
                 -- Obtener el total de empleados
                 SELECT COUNT(*) INTO v_total_empleados
-                FROM hr.employees;
+                FROM employees;
 
                 -- Mostrar el resultado
                 RAISE NOTICE 'Total de empleados: %', v_total_empleados;
@@ -742,7 +742,6 @@ api.get('/test', (req, res) => {
     res.json({ message: true });
 });
 
-// Endpoint adicional para testing de PostgreSQL
 api.get('/test/connection', verificar, async (req, res) => {
     try {
         const pool = getPool(req.user, req.password);

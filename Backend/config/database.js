@@ -7,7 +7,7 @@ const getPool = (user, password) => {
         password: password,
         host: process.env.POSTGRES_HOST || 'localhost',
         port: process.env.POSTGRES_PORT || 5432,
-        database: process.env.POSTGRES_DATABASE || 'postgres',
+        database: process.env.POSTGRES_DATABASE || '05-abd-crud-postgres',
         // Configuraciones adicionales
         max: 20, // máximo número de clientes en el pool
         idleTimeoutMillis: 30000, // tiempo de espera antes de cerrar conexiones inactivas
@@ -21,7 +21,7 @@ const adminPool = new Pool({
     password: process.env.POSTGRES_ADMIN_PASSWORD,
     host: process.env.POSTGRES_HOST || 'localhost',
     port: process.env.POSTGRES_PORT || 5432,
-    database: process.env.POSTGRES_DATABASE || 'postgres',
+    database: process.env.POSTGRES_DATABASE || '05-abd-crud-postgres',
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,

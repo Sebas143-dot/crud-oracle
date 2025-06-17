@@ -1,6 +1,16 @@
+-- ========================================
+-- Database Creation and User Management
+-- ========================================
 
+-- Create database
+CREATE DATABASE "05-abd-crud-postgres";
 
+-- Create users
+CREATE USER HR WITH PASSWORD 'HR';
+CREATE USER COOT WITH PASSWORD 'COOT';
+CREATE USER CDPC WITH PASSWORD 'CDPC';
 
+THROW EXCEPTION 'HASTA AQUÍ DEBE EJECUTARSE ESTE SCRIPT Y LUEGO DEBE CONECTARSE A LA BASE DE DATOS "05-abd-crud-postgres" PARA EJECUTAR EL RESTO DEL SCRIPT';
 -- ========================================
 -- 1. Tabla: regions
 -- ========================================
@@ -193,3 +203,30 @@ INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES
 (16, 182, 3, 24.99),
 (17, 184, 4, 12.99),
 (18, 185, 1, 9.99);
+
+-- Grant privileges after tables are created (will be executed after all table creation)
+-- HR: Read-only access
+GRANT CONNECT ON DATABASE "05-abd-crud-postgres" TO HR;
+GRANT USAGE ON SCHEMA public TO HR;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO HR;
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO HR;
+
+-- COOT: Read, Insert, Update access
+GRANT CONNECT ON DATABASE "05-abd-crud-postgres" TO COOT;
+GRANT USAGE ON SCHEMA public TO COOT;
+GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO COOT;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO COOT;
+
+-- CDPC: All privileges
+GRANT CONNECT ON DATABASE "05-abd-crud-postgres" TO CDPC;
+GRANT USAGE ON SCHEMA public TO CDPC;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO CDPC;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO CDPC;
+
+-- Ensure future tables also get the appropriate permissions
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO HR;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON SEQUENCES TO HR;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE ON TABLES TO COOT;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO COOT;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO CDPC;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO CDPC;
