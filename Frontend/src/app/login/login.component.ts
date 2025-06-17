@@ -138,7 +138,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
         this.authService.guardarToken(res.token);
         loginBtn.textContent = originalText!;
         loginBtn.disabled = false;
-        this.router.navigate(['/dashboard']);
+        this.router.navigate(['/ejecutar-codigo']);
       },
       error: (err) => {
         this.errorMessage = err.error?.error || 'Error al iniciar sesión';

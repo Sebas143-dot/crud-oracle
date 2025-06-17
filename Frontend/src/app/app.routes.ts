@@ -1,11 +1,9 @@
 import { Routes } from '@angular/router';
 import { LoginComponent } from './login/login.component';
-import { DashboardComponent } from './dashboard/dashboard.component';
-import { authGuard } from './guards/auth.guard';
+import { EjecutarCodigoComponent } from './ejecutar-codigo/ejecutar-codigo.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
-  { path: 'dashboard', component: DashboardComponent, canActivate: [authGuard] },
-  { path: '', redirectTo: 'login', pathMatch: 'full' },
-  { path: '**', redirectTo: 'login' }
+  { path: 'ejecutar-codigo', component: EjecutarCodigoComponent },
+  { path: '', redirectTo: '/ejecutar-codigo', pathMatch: 'full' }
 ];
