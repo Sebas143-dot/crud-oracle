@@ -2,17 +2,31 @@ const { Pool } = require('pg');
 
 // Configuración de conexión a PostgreSQL
 const getPool = (user, password) => {
-    return new Pool({
+    const isAzure = process.env.POSTGRES_HOST && process.env.POSTGRES_HOST.includes('azure.com');
+
+    const poolConfig = {
         user: user,
         password: password,
         host: process.env.POSTGRES_HOST || 'localhost',
-        port: process.env.POSTGRES_PORT || 5432,
+        port: parseInt(process.env.POSTGRES_PORT) || 5432,
         database: process.env.POSTGRES_DATABASE || '05-abd-crud-postgres',
-        // Configuraciones adicionales
-        max: 20, // máximo número de clientes en el pool
-        idleTimeoutMillis: 30000, // tiempo de espera antes de cerrar conexiones inactivas
-        connectionTimeoutMillis: 2000, // tiempo de espera para obtener conexión
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 15000,
+        // SSL requerido para Azure
+        ssl: isAzure ? {
+            rejectUnauthorized: false
+        } : false
+    };
+    
+    const pool = new Pool(poolConfig);
+
+    pool.on('error', (err) => {
+        console.error('Error en el pool de PostgreSQL:', err.message);
+        console.error('Código de error:', err.code);
     });
+
+    return pool;
 };
 
 // Pool principal para consultas administrativas (usando variables de entorno)

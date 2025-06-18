@@ -12,15 +12,12 @@ const { getPool, adminPool } = require('../config/database');
 
 //#endregion
 
-
 api.post('/login', async (req, res) => {
     const { user, password } = req.body;
-
+    
     try {
-        // Crear pool de conexión con las credenciales del usuario
         const pool = getPool(user, password);
-
-        // Probar la conexión
+        
         const client = await pool.connect();
         await client.query('SELECT NOW()'); // Query simple para probar conexión
         client.release();
@@ -34,23 +31,28 @@ api.post('/login', async (req, res) => {
         res.json({
             token
         });
-    } catch (err) {
-        // Manejo de errores específicos de PostgreSQL
-        if (err.code === '28P01' || err.code === '28000') { // Invalid password
-            res.status(401).json({
-                error: 'Usuario o contraseña incorrectos'
-            });
-        } else if (err.code === '3D000') { // Invalid database name
-            res.status(401).json({
-                error: 'Base de datos no encontrada'
-            });
-        } else {
-            console.error('Error al conectar a PostgreSQL:', err);
-            res.status(500).json({
-                error: 'Error al conectar a PostgreSQL',
-                details: err.message
-            });
+        
+    } catch (error) {
+        console.error('❌ Error al conectar a PostgreSQL:', error.message);
+        console.error('Código de error:', error.code);
+        
+        let errorMessage = 'Error de conexión a la base de datos';
+        
+        if (error.code === '28P01') {
+            errorMessage = 'Usuario o contraseña incorrectos';
+        } else if (error.code === '28000') {
+            errorMessage = 'El usuario no tiene permisos suficientes';
+        } else if (error.code === 'ENOTFOUND') {
+            errorMessage = 'No se puede conectar al servidor de base de datos';
+        } else if (error.code === 'ECONNREFUSED') {
+            errorMessage = 'Conexión rechazada por el servidor';
         }
+        
+        res.status(401).json({ 
+            success: false, 
+            message: errorMessage,
+            error: error.message 
+        });
     }
 });
 
@@ -88,27 +90,27 @@ api.get('/privilegios', verificar, async (req, res) => {
         if (userRole.rolsuper) {
             privileges.push('SUPERUSER');
         }
-        
+
         if (userRole.rolinherit) {
             privileges.push('INHERIT ROLE');
         }
-        
+
         if (userRole.rolcreaterole) {
             privileges.push('CREATE ROLE');
         }
-        
+
         if (userRole.rolcreatedb) {
             privileges.push('CREATE DATABASE');
         }
-        
+
         if (userRole.rolcanlogin) {
             privileges.push('LOGIN');
         }
-        
+
         if (userRole.rolreplication) {
             privileges.push('REPLICATION');
         }
-        
+
         if (userRole.rolbypassrls) {
             privileges.push('BYPASS ROW LEVEL SECURITY');
         }
@@ -123,11 +125,11 @@ api.get('/privilegios', verificar, async (req, res) => {
         if (dbPrivs.rows[0].can_connect) {
             privileges.push('CONNECT DATABASE');
         }
-        
+
         if (dbPrivs.rows[0].can_create_schema) {
             privileges.push('CREATE SCHEMA');
         }
-        
+
         if (dbPrivs.rows[0].can_create_temp) {
             privileges.push('CREATE TEMP TABLE');
         }
@@ -141,7 +143,7 @@ api.get('/privilegios', verificar, async (req, res) => {
         if (schemaPrivs.rows[0].can_create_in_public) {
             privileges.push('CREATE TABLE');
         }
-        
+
         if (schemaPrivs.rows[0].can_use_public) {
             privileges.push('USAGE ON SCHEMA');
         }
@@ -216,7 +218,7 @@ api.get('/tablas', verificar, async (req, res) => {
 
         result.rows.forEach(row => {
             const key = `${row.owner}.${row.table_name}`;
-            
+
             if (!tablesMap.has(key)) {
                 tablesMap.set(key, {
                     owner: row.owner,
@@ -231,7 +233,7 @@ api.get('/tablas', verificar, async (req, res) => {
             }
 
             const table = tablesMap.get(key);
-            
+
             // Mapear los tipos de privilegios de PostgreSQL a formato esperado
             switch (row.privilege_type.toLowerCase()) {
                 case 'select':
