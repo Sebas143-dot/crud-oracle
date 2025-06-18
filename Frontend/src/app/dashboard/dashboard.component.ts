@@ -63,53 +63,102 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedPredefinedCommand = '';
   isExecutingCommand: boolean = false;
 
-  predefinedCommands: PredefinedCommand[] = [
-    {
-      id: 'tiempo',
-      name: 'Script de Tiempo y Tipos de Datos',
-      description: 'Ejecuta operaciones con fechas y muestra todos los tipos de datos Oracle',
-      sqlPreview: `DECLARE
-  v_fecha DATE := TO_DATE('2025-06-11', 'YYYY-MM-DD');
-  v_proximo_dia DATE;
-  v_dia_anterior DATE;
-  -- Variables para tipos de datos
-  v_char CHAR(10) := 'TextoA';
-  v_varchar2 VARCHAR2(20) := 'Texto B';
-  v_number NUMBER(10,2) := 12345.67;
-BEGIN
-  -- Operaciones con fechas...
-END;`,
-      endpoint: () => this.auth.ejecutarScriptTiempo()
-    },
-    {
-      id: 'empleados-hr',
-      name: 'Total Empleados HR',
-      description: 'Cuenta el total de empleados en la tabla HR.EMPLOYEES',
-      sqlPreview: `DECLARE
-  v_total_empleados NUMBER;
-BEGIN
-  SELECT COUNT(*) INTO v_total_empleados
-  FROM HR.EMPLOYEES;
-  DBMS_OUTPUT.PUT_LINE('Total de empleados: ' || v_total_empleados);
-END;`,
-      endpoint: () => this.auth.ejecutarTotalEmpleadosHR()
-    },
-    {
-      id: 'fecha-bd',
-      name: 'Fecha Creación Base de Datos',
-      description: 'Muestra el nombre y fecha de creación de la base de datos',
-      sqlPreview: `DECLARE
-  v_nombre_bd VARCHAR2(50);
-  v_fecha_crea DATE;
-BEGIN
-  SELECT NAME, CREATED INTO v_nombre_bd, v_fecha_crea
-  FROM V$DATABASE;
-  DBMS_OUTPUT.PUT_LINE('Nombre de la BD: ' + v_nombre_bd);
-  DBMS_OUTPUT.PUT_LINE('Fecha creación: ' + TO_CHAR(v_fecha_crea, 'YYYY-MM-DD HH24:MI:SS'));
-END;`,
-      endpoint: () => this.auth.ejecutarFechaCreacionBase()
-    }
-  ];
+predefinedCommands: PredefinedCommand[] = [
+  {
+    id: 'tiempo',
+    name: 'Script de Tiempo y Tipos de Datos',
+    description: 'Ejecuta operaciones con fechas y muestra todos los tipos de datos PostgreSQL',
+    sqlPreview: `DO $$
+    DECLARE
+      v_fecha DATE := '2025-06-11'::DATE;
+      v_proximo_dia DATE;
+      v_dia_anterior DATE;
+      v_anio INTEGER;
+      v_anio_anterior INTEGER;
+      v_anio_siguiente INTEGER;
+      v_bisiesto VARCHAR(3) := 'No';
+      v_char CHAR(10) := 'TextoA';
+      v_varchar VARCHAR(20) := 'Texto B';
+      v_numeric NUMERIC(10,2) := 12345.67;
+      v_integer INTEGER := -100;
+      v_timestamp_with_date TIMESTAMP := '2025-06-11 10:30:00'::TIMESTAMP;
+      v_interval_months INTERVAL := '2 years 6 months'::INTERVAL;
+      v_interval_days INTERVAL := '5 days 12 hours 30 minutes 45.123456 seconds'::INTERVAL;
+    BEGIN
+      RAISE NOTICE '============================================================================';
+      RAISE NOTICE '                           OPERACIONES CON FECHAS';
+      RAISE NOTICE '============================================================================';
+      v_proximo_dia := v_fecha + INTERVAL '1 day';
+      v_dia_anterior := v_fecha - INTERVAL '1 day';
+      v_anio := EXTRACT(YEAR FROM v_fecha);
+      v_anio_anterior := v_anio - 1;
+      v_anio_siguiente := v_anio + 1;
+      IF (v_anio % 4 = 0 AND v_anio % 100 != 0) OR (v_anio % 400 = 0) THEN
+        v_bisiesto := 'Sí';
+      END IF;
+      RAISE NOTICE 'Fecha original:         %', v_fecha;
+      RAISE NOTICE 'Día anterior:           %', v_dia_anterior;
+      RAISE NOTICE 'Próximo día:            %', v_proximo_dia;
+      RAISE NOTICE 'Año actual:             %', v_anio;
+      RAISE NOTICE 'Año anterior:           %', v_anio_anterior;
+      RAISE NOTICE 'Año siguiente:          %', v_anio_siguiente;
+      RAISE NOTICE '¿Es bisiesto?:          %', v_bisiesto;
+      RAISE NOTICE 'Fecha más 1 semana:     %', v_fecha + INTERVAL '7 days';
+      RAISE NOTICE 'Fecha más 1 mes:        %', v_fecha + INTERVAL '1 month';
+      RAISE NOTICE 'Fecha más 1 año:        %', v_fecha + INTERVAL '1 year';
+      RAISE NOTICE 'Último día del mes:     %', (DATE_TRUNC('month', v_fecha) + INTERVAL '1 month - 1 day')::DATE;
+      RAISE NOTICE '';
+      RAISE NOTICE '================================================================================';
+      RAISE NOTICE '                            TIPOS DE DATOS POSTGRESQL';
+      RAISE NOTICE '================================================================================';
+      RAISE NOTICE 'TIPO DE DATO                   VALOR';
+      RAISE NOTICE '--------------------------------------------------------------------------------';
+      RAISE NOTICE 'CHAR                           %', v_char;
+      RAISE NOTICE 'VARCHAR                        %', v_varchar;
+      RAISE NOTICE 'NUMERIC                        %', v_numeric;
+      RAISE NOTICE 'INTEGER                        %', v_integer;
+      RAISE NOTICE 'TIMESTAMP                      %', v_timestamp_with_date;
+      RAISE NOTICE 'INTERVAL (YEARS-MONTHS)        %', v_interval_months;
+      RAISE NOTICE 'INTERVAL (DAYS-SECONDS)        %', v_interval_days;
+      RAISE NOTICE '--------------------------------------------------------------------------------';
+      RAISE NOTICE '';
+      RAISE NOTICE '================================================================================';
+      RAISE NOTICE '                              FIN DEL PROGRAMA';
+      RAISE NOTICE '================================================================================';
+    END $$;`,
+    endpoint: () => this.auth.ejecutarScriptTiempo()
+  },
+  {
+    id: 'total-empleados',
+    name: 'Contar Empleados (HR)',
+    description: 'Muestra la cantidad total de empleados en la tabla EMPLOYEES',
+    sqlPreview: `DO $$
+    DECLARE
+      v_total_empleados INTEGER;
+    BEGIN
+      SELECT COUNT(*) INTO v_total_empleados
+      FROM employees;
+      RAISE NOTICE 'Total de empleados: %', v_total_empleados;
+    END $$;`,
+    endpoint: () => this.auth.ejecutarTotalEmpleadosHR()
+  },
+  {
+    id: 'info-base-datos',
+    name: 'Información de la Base de Datos',
+    description: 'Muestra información sobre la base de datos actual',
+    sqlPreview: `DO $$
+    DECLARE
+      v_nombre_bd TEXT;
+      v_fecha_crea TIMESTAMP;
+    BEGIN
+      SELECT current_database() INTO v_nombre_bd;
+      SELECT pg_postmaster_start_time() INTO v_fecha_crea;
+      RAISE NOTICE 'Nombre de la base de datos: %', v_nombre_bd;
+      RAISE NOTICE 'Fecha de inicio del servidor: %', v_fecha_crea;
+    END $$;`,
+    endpoint: () => this.auth.ejecutarFechaCreacionBase()
+  }
+];
 
   constructor(
     private auth: AuthService,
@@ -231,9 +280,9 @@ END;`,
 
   private isStructuredOutput(output: string): boolean {
     return output.includes('=====') ||
-           output.includes('OPERACIONES CON FECHAS') ||
-           output.includes('TIPOS DE DATOS ORACLE') ||
-           output.includes('TIPO DE DATO');
+          output.includes('OPERACIONES CON FECHAS') ||
+          output.includes('TIPOS DE DATOS ORACLE') ||
+          output.includes('TIPO DE DATO');
   }
 
   private parseStructuredOutput(output: string): ParsedResult {
