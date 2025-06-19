@@ -157,7 +157,64 @@ predefinedCommands: PredefinedCommand[] = [
       RAISE NOTICE 'Fecha de inicio del servidor: %', v_fecha_crea;
     END $$;`,
     endpoint: () => this.auth.ejecutarFechaCreacionBase()
-  }
+  },
+  {
+  id: 'reporte-empleados',
+  name: 'Reporte de Años Trabajados (HR)',
+  description: 'Genera un reporte con los años trabajados por cada empleado en HR',
+  sqlPreview: `DO $$
+DECLARE
+  -- Cursor para empleados
+  c_empleados CURSOR FOR
+    SELECT first_name, last_name, hire_date FROM employees;
+
+  -- Record type para empleado
+  empleado_record RECORD;
+  
+  -- Variables para cálculos
+  v_anios INTEGER;
+  v_nombre_completo TEXT;
+  
+BEGIN
+  -- Encabezado de la tabla
+  RAISE NOTICE '%', RPAD('Nombre del empleado', 31) || '|' || ' Años de trabajo';
+  RAISE NOTICE '%', REPEAT('-', 50);
+
+  -- Abrir cursor y procesar cada empleado
+  FOR empleado_record IN c_empleados LOOP
+    -- Calcular años de trabajo
+    v_anios := EXTRACT(YEAR FROM AGE(CURRENT_DATE, empleado_record.hire_date));
+    
+    -- Formatear nombre completo
+    v_nombre_completo := empleado_record.first_name || ' ' || empleado_record.last_name;
+    
+    -- Mostrar resultado formateado
+    RAISE NOTICE '%', RPAD(v_nombre_completo, 30) || ' | ' || LPAD(v_anios::TEXT, 5);
+  END LOOP;
+
+  RAISE NOTICE '%', REPEAT('-', 50);
+  RAISE NOTICE 'Fin del reporte de años de trabajo';
+END $$;`,
+  endpoint: () => this.auth.ejecutarComandoSQL(`
+    DO $$
+    DECLARE
+      c_empleados CURSOR FOR SELECT first_name, last_name, hire_date FROM employees;
+      empleado_record RECORD;
+      v_anios INTEGER;
+      v_nombre_completo TEXT;
+    BEGIN
+      RAISE NOTICE '%', RPAD('Nombre del empleado', 31) || '|' || ' Años de trabajo';
+      RAISE NOTICE '%', REPEAT('-', 50);
+      FOR empleado_record IN c_empleados LOOP
+        v_anios := EXTRACT(YEAR FROM AGE(CURRENT_DATE, empleado_record.hire_date));
+        v_nombre_completo := empleado_record.first_name || ' ' || empleado_record.last_name;
+        RAISE NOTICE '%', RPAD(v_nombre_completo, 30) || ' | ' || LPAD(v_anios::TEXT, 5);
+      END LOOP;
+      RAISE NOTICE '%', REPEAT('-', 50);
+      RAISE NOTICE 'Fin del reporte de años de trabajo';
+    END $$;
+  `)
+}
 ];
 
   constructor(
