@@ -740,28 +740,70 @@ api.get('/script/fecha-creacion-base', verificar, async (req, res) => {
     }
 });
 
-api.get('/test', (req, res) => {
-    res.json({ message: true });
-});
-
-api.get('/test/connection', verificar, async (req, res) => {
+api.get('/script/hr-trabajo', verificar, async (req, res) => {
     try {
         const pool = getPool(req.user, req.password);
         const client = await pool.connect();
 
-        const result = await client.query('SELECT current_database() as database, current_user as user, NOW() as timestamp');
+        // Capturar los notices
+        let notices = [];
+        client.on('notice', (notice) => {
+            notices.push(notice.message);
+        });
+
+        // Script traducido de PL/SQL a PL/pgSQL
+        const plpgsqlScript = `
+            DO $$
+            DECLARE
+                -- Cursor para empleados
+                c_empleados CURSOR FOR
+                    SELECT first_name, last_name, hire_date FROM employees;
+
+                -- Record type para empleado
+                empleado_record RECORD;
+                
+                -- Variables para cálculos
+                v_anios INTEGER;
+                v_nombre_completo TEXT;
+                
+            BEGIN
+                -- Encabezado de la tabla
+                RAISE NOTICE '%', RPAD('Nombre del empleado', 31) || '|' || ' Años de trabajo';
+                RAISE NOTICE '%', REPEAT('-', 50);
+
+                -- Abrir cursor y procesar cada empleado
+                FOR empleado_record IN c_empleados LOOP
+                    -- Calcular años de trabajo
+                    v_anios := EXTRACT(YEAR FROM AGE(CURRENT_DATE, empleado_record.hire_date));
+                    
+                    -- Formatear nombre completo
+                    v_nombre_completo := empleado_record.first_name || ' ' || empleado_record.last_name;
+                    
+                    -- Mostrar resultado formateado
+                    RAISE NOTICE '%', RPAD(v_nombre_completo, 30) || ' | ' || LPAD(v_anios::TEXT, 5);
+                END LOOP;
+
+                RAISE NOTICE '%', REPEAT('-', 50);
+                RAISE NOTICE 'Fin del reporte de años de trabajo';
+                
+            END $$;
+        `;
+
+        await client.query(plpgsqlScript);
 
         client.release();
         await pool.end();
 
+        console.log(`El usuario ${req.user} ejecutó el script de años de trabajo`);
+
         res.json({
-            message: 'Conexión PostgreSQL exitosa',
-            data: result.rows[0]
+            message: 'Script de años de trabajo ejecutado correctamente',
+            output: notices.length > 0 ? notices.join('\n') : 'Script ejecutado sin mensajes de salida.'
         });
     } catch (err) {
-        console.error('Error en test de conexión:', err);
+        console.error('Error al ejecutar el script de años de trabajo:\n', err);
         res.status(500).json({
-            error: 'Error en test de conexión',
+            error: 'Error al ejecutar el script de años de trabajo',
             details: err.message
         });
     }
