@@ -15,4 +15,13 @@ const api = require('./routes/api');
 app.use('/api', api);
 //#endregion
 
+//#region Servir Frontend Angular
+const frontendPath = path.join(__dirname, '../Frontend/dist/crud/browser');
+app.use(express.static(frontendPath));
+
+app.get('/*', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
+//#endregion
+
 app.listen(3000, () => console.log('Backend corriendo en http://localhost:3000'));
