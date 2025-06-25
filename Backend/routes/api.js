@@ -14,10 +14,10 @@ const { getPool, adminPool } = require('../config/database');
 
 api.post('/login', async (req, res) => {
     const { user, password } = req.body;
-    
+
     try {
         const pool = getPool(user, password);
-        
+
         const client = await pool.connect();
         await client.query('SELECT NOW()'); // Query simple para probar conexión
         client.release();
@@ -31,13 +31,13 @@ api.post('/login', async (req, res) => {
         res.json({
             token
         });
-        
+
     } catch (error) {
         console.error('❌ Error al conectar a PostgreSQL:', error.message);
         console.error('Código de error:', error.code);
-        
+
         let errorMessage = 'Error de conexión a la base de datos';
-        
+
         if (error.code === '28P01') {
             errorMessage = 'Usuario o contraseña incorrectos';
         } else if (error.code === '28000') {
@@ -47,11 +47,11 @@ api.post('/login', async (req, res) => {
         } else if (error.code === 'ECONNREFUSED') {
             errorMessage = 'Conexión rechazada por el servidor';
         }
-        
-        res.status(401).json({ 
-            success: false, 
+
+        res.status(401).json({
+            success: false,
             message: errorMessage,
-            error: error.message 
+            error: error.message
         });
     }
 });
@@ -805,6 +805,168 @@ api.get('/script/hr-trabajo', verificar, async (req, res) => {
         res.status(500).json({
             error: 'Error al ejecutar el script de años de trabajo',
             details: err.message
+        });
+    }
+});
+
+api.post('/script/validar-cedula', verificar, async (req, res) => {
+    try {
+        const { cedula } = req.body;
+
+        if (!cedula) {
+            return res.status(400).json({
+                error: 'El parámetro cedula es requerido'
+            });
+        }
+
+        const pool = getPool(req.user, req.password);
+        const client = await pool.connect();
+
+        // Capturar los notices
+        let notices = [];
+        client.on('notice', (notice) => {
+            notices.push(notice.message);
+        });
+
+        // Crear tabla si no existe
+        try {
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS t_cedula (
+                    id_cedula SERIAL PRIMARY KEY,
+                    nro_cedula VARCHAR(10) NOT NULL UNIQUE
+                );
+            `);
+        } catch (err) {
+            // Tabla ya existe, continuar
+        }
+
+        // Script de validación de cédula ecuatoriana migrado a PL/pgSQL
+        const plpgsqlScript = `
+            DO $$
+            DECLARE
+                v_cedula VARCHAR(10) := '${cedula}';
+                v_suma INTEGER := 0;
+                v_digito INTEGER;
+                v_verificador INTEGER;
+                v_resultado INTEGER;
+                v_coeficiente INTEGER;
+                v_posicion INTEGER;
+                
+                -- Cursor para obtener cada dígito de la cédula con su posición
+                -- En PostgreSQL usamos un cursor sobre una función generate_series
+                digito_cursor CURSOR FOR
+                    SELECT SUBSTRING(v_cedula FROM i FOR 1)::INTEGER AS digito, i AS posicion
+                    FROM generate_series(1, 9) AS i;
+                    
+                digito_rec RECORD;
+                
+            BEGIN
+                -- Verificar que la cédula tenga 10 dígitos
+                IF LENGTH(v_cedula) != 10 OR v_cedula !~ '^[0-9]+$' THEN
+                    RAISE EXCEPTION 'La cédula debe tener exactamente 10 dígitos numéricos';
+                END IF;
+
+                -- Verificar que los dos primeros dígitos sean válidos (01-24)
+                IF SUBSTRING(v_cedula FROM 1 FOR 2)::INTEGER < 1 OR SUBSTRING(v_cedula FROM 1 FOR 2)::INTEGER > 24 THEN
+                    RAISE EXCEPTION 'Los dos primeros dígitos deben estar entre 01 y 24';
+                END IF;
+
+                -- Verificar que el tercer dígito sea menor a 6
+                IF SUBSTRING(v_cedula FROM 3 FOR 1)::INTEGER >= 6 THEN
+                    RAISE EXCEPTION 'El tercer dígito debe ser menor a 6';
+                END IF;
+
+                -- Algoritmo de validación de cédula ecuatoriana usando cursor
+                OPEN digito_cursor;
+                LOOP
+                    FETCH digito_cursor INTO digito_rec;
+                    EXIT WHEN NOT FOUND;
+                    
+                    v_digito := digito_rec.digito;
+                    v_posicion := digito_rec.posicion;
+
+                    -- Obtener coeficiente según posición
+                    IF v_posicion % 2 = 1 THEN
+                        v_coeficiente := 2;
+                    ELSE
+                        v_coeficiente := 1;
+                    END IF;
+
+                    v_resultado := v_digito * v_coeficiente;
+
+                    IF v_resultado >= 10 THEN
+                        v_resultado := v_resultado - 9;
+                    END IF;
+
+                    v_suma := v_suma + v_resultado;
+                    
+                    -- Mostrar el proceso de validación para cada dígito
+                    RAISE NOTICE 'Posición %: dígito=%, coef=%, resultado=%', v_posicion, v_digito, v_coeficiente, v_resultado;
+                END LOOP;
+                CLOSE digito_cursor;
+
+                -- Calcular dígito verificador
+                v_verificador := 10 - (v_suma % 10);
+                IF v_verificador = 10 THEN
+                    v_verificador := 0;
+                END IF;
+                
+                RAISE NOTICE 'Suma total: %', v_suma;
+                RAISE NOTICE 'Dígito verificador calculado: %', v_verificador;
+                RAISE NOTICE 'Último dígito de la cédula: %', SUBSTRING(v_cedula FROM 10 FOR 1);
+
+                -- Verificar si el último dígito coincide
+                IF v_verificador != SUBSTRING(v_cedula FROM 10 FOR 1)::INTEGER THEN
+                    RAISE EXCEPTION 'La cédula no es válida según el algoritmo de verificación';
+                END IF;
+
+                -- Si llegamos aquí, la cédula es válida, insertarla
+                INSERT INTO t_cedula (nro_cedula) VALUES (v_cedula);
+
+                RAISE NOTICE '✓ Cédula % validada e insertada correctamente', v_cedula;
+
+            EXCEPTION
+                WHEN unique_violation THEN
+                    RAISE EXCEPTION 'La cédula % ya está registrada en el sistema', v_cedula;
+                WHEN OTHERS THEN
+                    RAISE EXCEPTION 'Error inesperado: %', SQLERRM;
+            END $$;
+        `;
+
+        await client.query(plpgsqlScript);
+
+        client.release();
+        await pool.end();
+
+        console.log(`El usuario ${req.user} validó la cédula ${cedula}`);
+
+        res.json({
+            message: 'success',
+            output: notices.length > 0 ? notices.join('\n') : 'Cédula validada correctamente'
+        });
+
+    } catch (err) {
+        console.error('Error al validar cédula:\n', err);
+
+        // Extraer el mensaje de error personalizado de PostgreSQL
+        let errorMessage = err.message;
+
+        // PostgreSQL maneja los errores de forma diferente
+        if (err.message.includes('La cédula debe tener exactamente 10 dígitos')) {
+            errorMessage = 'La cédula debe tener exactamente 10 dígitos numéricos';
+        } else if (err.message.includes('Los dos primeros dígitos deben estar entre')) {
+            errorMessage = 'Los dos primeros dígitos deben estar entre 01 y 24';
+        } else if (err.message.includes('El tercer dígito debe ser menor')) {
+            errorMessage = 'El tercer dígito debe ser menor a 6';
+        } else if (err.message.includes('no es válida según el algoritmo')) {
+            errorMessage = 'La cédula no es válida según el algoritmo de verificación';
+        } else if (err.message.includes('ya está registrada')) {
+            errorMessage = err.message;
+        }
+
+        res.status(400).json({
+            error: 'Error al validar cédula',
+            details: errorMessage
         });
     }
 });
