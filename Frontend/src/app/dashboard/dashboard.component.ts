@@ -3,14 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+
 import { NavbarComponent } from '../navbar/navbar.component';
 import { LayoutControlService } from '../services/layout-control.service';
-
 import {
   AuthService,
   TablasResponse,
   DatosTablaResponse,
-  TiposTablaResponse,
   SqlCommandResponse
 } from '../services/auth.service';
 
@@ -57,11 +57,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   parsedResult: ParsedResult | null = null;
 
   private subscription: Subscription = new Subscription();
-
   resultAsTable: string[][] = [];
 
   selectedPredefinedCommand = '';
   isExecutingCommand: boolean = false;
+
+  inputCedula: string = '';
+  resultadoCedula: string = '';
+  token: string = '';
 
   predefinedCommands: PredefinedCommand[] = [
     {
@@ -72,12 +75,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   v_fecha DATE := TO_DATE('2025-06-11', 'YYYY-MM-DD');
   v_proximo_dia DATE;
   v_dia_anterior DATE;
-  -- Variables para tipos de datos
   v_char CHAR(10) := 'TextoA';
   v_varchar2 VARCHAR2(20) := 'Texto B';
   v_number NUMBER(10,2) := 12345.67;
 BEGIN
-  -- Operaciones con fechas...
+  NULL;
 END;`,
       endpoint: () => this.auth.ejecutarScriptTiempo()
     },
@@ -104,8 +106,8 @@ END;`,
 BEGIN
   SELECT NAME, CREATED INTO v_nombre_bd, v_fecha_crea
   FROM V$DATABASE;
-  DBMS_OUTPUT.PUT_LINE('Nombre de la BD: ' + v_nombre_bd);
-  DBMS_OUTPUT.PUT_LINE('Fecha creación: ' + TO_CHAR(v_fecha_crea, 'YYYY-MM-DD HH24:MI:SS'));
+  DBMS_OUTPUT.PUT_LINE('Nombre de la BD: ' || v_nombre_bd);
+  DBMS_OUTPUT.PUT_LINE('Fecha creación: ' || TO_CHAR(v_fecha_crea, 'YYYY-MM-DD HH24:MI:SS'));
 END;`,
       endpoint: () => this.auth.ejecutarFechaCreacionBase()
     }
@@ -114,10 +116,13 @@ END;`,
   constructor(
     private auth: AuthService,
     private router: Router,
-    private layoutService: LayoutControlService
-  ) { }
+    private layoutService: LayoutControlService,
+    private http: HttpClient
+  ) {}
 
   ngOnInit(): void {
+    this.token = localStorage.getItem('token') || '';
+
     this.auth.getTablas().subscribe({
       next: (r: TablasResponse) => this.tablas = r.result,
       error: e => this.error = 'Error al obtener tablas: ' + (e.error?.error || e.message)
@@ -138,6 +143,33 @@ END;`,
 
   ngOnDestroy(): void {
     this.subscription.unsubscribe();
+  }
+
+   validarCedula(): void {
+    if (!this.inputCedula.trim()) {
+      this.resultadoCedula = '⚠️ Ingrese una cédula válida.';
+      return;
+    }
+
+    this.resultadoCedula = '⌛ Validando...';
+
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${this.token}`
+    });
+
+    const body = { cedula: this.inputCedula.trim() };
+
+    this.http.post<any>('http://localhost:3000/api/script/validar-cedula', body, { headers }).subscribe({
+      next: (res: any) => {
+        this.resultadoCedula = res.output || '✓ Cédula validada correctamente';
+      },
+      error: (err: any) => {
+      console.error('Error al validar cédula:', err); // para depurar
+      const rawMessage = err?.error?.details || err?.error?.error || err?.message || JSON.stringify(err);
+      this.resultadoCedula = `❌ ${rawMessage}`;
+}
+    });
   }
 
   loadPredefinedCommand(): void {

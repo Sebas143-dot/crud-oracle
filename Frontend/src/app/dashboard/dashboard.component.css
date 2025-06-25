@@ -864,6 +864,49 @@ th .tipo-dato {
   background-color: #5a6fd6;
 }
 
+.cedula-section {
+  margin-top: 30px;
+  padding: 15px;
+  border-top: 2px solid #ccc;
+}
+
+.cedula-section h4 {
+  margin-bottom: 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cedula-input {
+  padding: 8px;
+  width: calc(100% - 20px);
+  margin-bottom: 10px;
+  border-radius: 4px;
+  border: 1px solid #888;
+  font-size: 14px;
+}
+
+.validate-btn {
+  padding: 8px 12px;
+  background-color: #007ACC;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.validate-btn:hover {
+  background-color: #005999;
+}
+
+.cedula-output pre {
+  background: #f3f3f3;
+  padding: 10px;
+  font-size: 13px;
+  white-space: pre-wrap;
+  border-left: 4px solid #007ACC;
+}
+
 /* ============ RESPONSIVE DESIGN ============ */
 @media (max-width: 1200px) {
   .main-container.split-layout {

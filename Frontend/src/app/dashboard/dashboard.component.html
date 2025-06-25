@@ -94,6 +94,32 @@
         </div>
       </div>
 
+      <!-- ============ VALIDACIÓN DE CÉDULA ECUATORIANA ============ -->
+<div class="cedula-section">
+  <h4>Validación de Cédula</h4>
+
+  <input 
+    type="text" 
+    placeholder="Ingrese cédula (10 dígitos)" 
+    [(ngModel)]="inputCedula" 
+    [disabled]="isExecutingCommand"
+    maxlength="10"
+    class="cedula-input"
+  />
+
+  <button 
+    class="validate-btn" 
+    (click)="validarCedula()" 
+    [disabled]="isExecutingCommand">
+    Validar Cédula
+  </button>
+
+  <div class="cedula-output" *ngIf="resultadoCedula">
+    <pre>{{ resultadoCedula }}</pre>
+  </div>
+</div>
+
+
       <!-- ============ DIVISOR ============ -->
       <div class="section-divider"></div>
 
