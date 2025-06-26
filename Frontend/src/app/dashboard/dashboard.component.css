@@ -855,6 +855,49 @@ th .tipo-dato {
   transition: background-color 0.3s ease;
 }
 
+.cedula-validator {
+  margin-top: 20px;
+  padding: 15px;
+  border-top: 1px solid #ccc;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+}
+
+.cedula-validator h4 {
+  margin-bottom: 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cedula-input {
+  width: calc(100% - 120px);
+  padding: 8px;
+  font-size: 14px;
+  margin-right: 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.validate-btn {
+  padding: 8px 15px;
+  font-size: 14px;
+  border: none;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+}
+
+.validate-btn:hover {
+  background-color: #0056b3;
+}
+
+.cedula-result {
+  margin-top: 10px;
+  font-weight: bold;
+  color: #333;
+}
+
 .paginacion button:disabled {
   background-color: #a3b1ff;
   cursor: default;

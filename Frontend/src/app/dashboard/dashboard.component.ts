@@ -38,6 +38,11 @@ interface ParsedResult {
 })
 export class DashboardComponent implements OnInit, OnDestroy {
 
+  token: string = '';
+  inputCedula: string = '';
+  resultadoCedula: string = '';
+
+
   tablas: any[] = [];
   error = '';
   mostrarModal = false;
@@ -224,6 +229,8 @@ END $$;`,
   ) { }
 
   ngOnInit(): void {
+    this.token = localStorage.getItem('token') || '';
+    
     this.auth.getTablas().subscribe({
       next: (r: TablasResponse) => this.tablas = r.result,
       error: e => this.error = 'Error al obtener tablas: ' + (e.error?.error || e.message)
@@ -579,4 +586,43 @@ END $$;`,
     const atributo = this.atributos.find(a => a.name === nombreColumna);
     return atributo ? atributo.type : 'Desconocido';
   }
+
+  validarCedula(): void {
+  if (!this.inputCedula.trim()) {
+    this.resultadoCedula = '⚠️ Ingrese una cédula válida.';
+    return;
+  }
+
+  this.resultadoCedula = '⌛ Validando...';
+
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${this.token}`
+  };
+
+  const body = { cedula: this.inputCedula.trim() };
+
+  fetch('http://localhost:3000/api/script/validar-cedula', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body)
+  })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok) {
+        throw data;
+      }
+      this.resultadoCedula = data.output || '✓ Cédula validada correctamente';
+    })
+    .catch(err => {
+      const rawMessage =
+        err?.details ||
+        err?.error ||
+        err?.message ||
+        JSON.stringify(err);
+
+      this.resultadoCedula = `❌ ${rawMessage}`;
+    });
+}
+
 }

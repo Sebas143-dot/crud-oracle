@@ -97,6 +97,27 @@
       <!-- ============ DIVISOR ============ -->
       <div class="section-divider"></div>
 
+      <!-- ============ VALIDACIÓN DE CÉDULAS ============ -->
+<div class="cedula-validator">
+  <h4>Validar Cédula</h4>
+
+  <div class="form-group">
+    <input
+      id="inputCedula"
+      type="text"
+      [(ngModel)]="inputCedula"
+      placeholder="Ej. 0103456789"
+      maxlength="10"
+      class="cedula-input"
+    />
+    <button (click)="validarCedula()" class="validate-btn">Validar</button>
+  </div>
+
+  <div class="cedula-result" *ngIf="resultadoCedula">
+    <p>{{ resultadoCedula }}</p>
+  </div>
+</div>
+
       <!-- ============ EDITOR SQL PERSONALIZADO ============ -->
       <div class="sql-editor">
         <textarea id="sqlCommand" [(ngModel)]="currentSqlCommand" (input)="onSqlCommandChange()"
