@@ -19,32 +19,50 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v3 # Puedes considerar @v4 para la última versión estable
         with:
           node-version: '20.x'
 
-      - name: npm install, build, and test
-        working-directory: ./Backend # <--- LÍNEA AÑADIDA/MODIFICADA
-        run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
+      # PASO 1: Instalar dependencias del Backend
+      - name: npm install (Backend)
+        working-directory: ./Backend
+        run: npm install
 
+      # PASO 2: Instalar dependencias del Frontend
+      - name: npm install (Frontend)
+        working-directory: ./Frontend
+        run: npm install
+
+      # PASO 3: Construir el Frontend para producción
+      # Asegúrate de que en package.json de tu Frontend tengas un script 'build'
+      # que ejecute 'ng build --configuration=production'
+      - name: npm build (Frontend Production)
+        working-directory: ./Frontend
+        run: npm run build -- --configuration=production # Usa 'ng build --configuration=production' si no tienes un script npm
+
+      # PASO 4: MOVER los archivos construidos del Frontend al directorio del Backend
+      # Esto es CRUCIAL porque tu index.js en Backend espera el Frontend en esa ruta relativa
+      # 'path.join(__dirname, '../Frontend/dist/crud/browser')' significa que el
+      # directorio 'Frontend/dist/crud/browser' debe existir DENTRO de la carpeta 'Backend'
+      - name: Move Frontend build to Backend serving directory
+        run: |
+          # Asegura que el directorio de destino exista dentro de Backend
+          mkdir -p ./Backend/Frontend/dist/crud/browser
+          # Mueve (o copia) el contenido del build del Frontend al lugar correcto dentro de Backend
+          cp -r ./Frontend/dist/crud/browser/* ./Backend/Frontend/dist/crud/browser/
+        working-directory: . # Este comando se ejecuta desde la raíz del repositorio
+
+      # PASO 5: Zipear SOLO la carpeta Backend para el despliegue
+      # Ahora, la carpeta Backend ya contiene el Frontend compilado en su estructura esperada
       - name: Zip artifact for deployment
-        # Si tu aplicación principal está dentro de 'Backend',
-        # es probable que quieras zippear el contenido de 'Backend'
-        # para que sea el root de tu App Service.
-        # Considera cambiar la línea de 'run' a:
-        # run: zip release.zip ./Backend -r
-        # Esto asegurará que el contenido de 'Backend' sea el que se despliegue.
-        # Por ahora, mantendremos el original, pero ten esto en cuenta si la app no inicia.
-        run: zip release.zip ./* -r
+        run: zip -r deploy_package.zip .
+        working-directory: ./Backend # Zipea el contenido de la carpeta Backend
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: release.zip
+          path: ./Backend/deploy_package.zip # La ruta al zip que acabas de crear
 
   deploy:
     runs-on: ubuntu-latest
@@ -60,7 +78,9 @@ jobs:
           name: node-app
 
       - name: Unzip artifact for deployment
-        run: unzip release.zip
+        # Descomprime el paquete en la raíz de donde se desplegará.
+        # El zip ya solo contiene la carpeta 'Backend'
+        run: unzip deploy_package.zip
       
       - name: Login to Azure
         uses: azure/login@v2
@@ -75,4 +95,6 @@ jobs:
         with:
           app-name: 'CrudPostgresCS'
           slot-name: 'Production'
-          package: .
+          # El paquete que se va a desplegar es ahora la carpeta 'Backend' que se descomprimió.
+          # Asegúrate de que el contenido del zip sea la raíz de tu app en App Service.
+          package: ./Backend # Esto desplegará el contenido de la carpeta Backend

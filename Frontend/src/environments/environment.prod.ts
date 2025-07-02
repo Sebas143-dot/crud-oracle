@@ -1,5 +1,5 @@
 // src/environments/environment.prod.ts
 export const environment = {
   production: true,
-  apiUrl: 'https://crud-oracle-yjg9.onrender.com/api'
+  apiUrl: '/api' // URL relativa, ya que el backend de Node.js está sirviendo el frontend
 };
