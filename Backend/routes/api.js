@@ -115,17 +115,30 @@ api.get('/tablas', verificar, async (req, res) => {
         });
 
         const result = await connection.execute(
-            `SELECT 
-                t.owner,
-                t.table_name,
-                LISTAGG(p.privilege, ', ') 
-                WITHIN GROUP (ORDER BY p.privilege) AS privileges
-            FROM all_tables t
-            JOIN all_tab_privs p 
-            ON t.table_name = p.table_name
-            WHERE p.grantee = USER
-            GROUP BY t.owner, t.table_name
-            ORDER BY t.owner, t.table_name`
+            `SELECT owner, table_name, privileges FROM (
+                -- Tablas donde el usuario es owner (privilegios implícitos)
+                SELECT 
+                    owner,
+                    table_name,
+                    'DELETE, INSERT, SELECT, UPDATE' AS privileges
+                FROM all_tables 
+                WHERE owner = USER
+                
+                UNION
+                
+                -- Tablas con privilegios explícitos otorgados
+                SELECT 
+                    t.owner,
+                    t.table_name,
+                    LISTAGG(p.privilege, ', ') 
+                    WITHIN GROUP (ORDER BY p.privilege) AS privileges
+                FROM all_tables t
+                JOIN all_tab_privs p 
+                ON t.table_name = p.table_name
+                WHERE p.grantee = USER
+                GROUP BY t.owner, t.table_name
+            )
+            ORDER BY owner, table_name`
         );
 
         await connection.close();
