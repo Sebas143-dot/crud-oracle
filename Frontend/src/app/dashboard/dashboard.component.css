@@ -907,6 +907,102 @@ th .tipo-dato {
   border-left: 4px solid #007ACC;
 }
 
+.column-selector {
+  margin-top: 30px;
+  background: #f9f9ff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.column-selector h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #444;
+}
+
+.column-selector select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  margin-top: 10px;
+  margin-bottom: 15px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.datos-generados {
+  margin-top: 20px;
+}
+
+.datos-generados textarea {
+  width: 100%;
+  min-height: 150px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  background: #f8f9fa;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  resize: vertical;
+}
+
+.archivo-cargado {
+  margin-top: 25px;
+  padding: 20px;
+  background-color: #f9f9ff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  text-align: center;
+}
+
+.archivo-cargado h4 {
+  margin-bottom: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.upload-label {
+  cursor: pointer;
+}
+
+.upload-btn {
+  display: inline-block;
+  padding: 10px 20px;
+  background: linear-gradient(to right, #667eea, #764ba2);
+  color: white;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+}
+
+.upload-btn:hover {
+  background: linear-gradient(to right, #5a6fd6, #6a429a);
+  transform: translateY(-2px);
+}
+
+
 /* ============ RESPONSIVE DESIGN ============ */
 @media (max-width: 1200px) {
   .main-container.split-layout {

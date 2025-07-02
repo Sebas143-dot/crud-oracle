@@ -66,6 +66,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   resultadoCedula: string = '';
   token: string = '';
 
+  columnasSeleccionadas: string[] = [];
+  separadorSeleccionado: string = ',';
+  textoGenerado: string = '';
+
   predefinedCommands: PredefinedCommand[] = [
     {
       id: 'tiempo',
@@ -505,4 +509,56 @@ END;`,
     const atributo = this.atributos.find(a => a.name === nombreColumna);
     return atributo ? atributo.type : 'Desconocido';
   }
+
+  toggleColumnaSeleccionada(columna: string, event: any): void {
+    if (event.target.checked) {
+      this.columnasSeleccionadas.push(columna);
+    } else {
+      this.columnasSeleccionadas = this.columnasSeleccionadas.filter(c => c !== columna);
+    }
+  }
+
+  generarDatosSeparados(): void {
+    if (this.columnasSeleccionadas.length === 0) {
+      this.textoGenerado = '⚠️ Debe seleccionar al menos una columna.';
+      return;
+    }
+
+    const sep = this.separadorSeleccionado === '\\t' ? '\t' : this.separadorSeleccionado;
+    const encabezado = this.columnasSeleccionadas.join(sep);
+
+    const indices = this.columnasSeleccionadas.map(col => this.columnas.indexOf(col));
+    const filasFormateadas = this.filas.map(fila =>
+      indices.map(i => fila[i] ?? '').join(sep)
+    );
+
+    this.textoGenerado = [encabezado, ...filasFormateadas].join('\n');
+  }
+
+  descargarTxt(): void {
+    const blob = new Blob([this.textoGenerado], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.tablaSeleccionada?.table_name || 'datos'}.txt`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  cargarArchivoTxt(event: any): void {
+  const file: File = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const contenido = reader.result as string;
+    this.textoGenerado = contenido;
+  };
+  reader.onerror = () => {
+    this.textoGenerado = '❌ Error al leer el archivo.';
+  };
+
+  reader.readAsText(file);
+}
+
 }
