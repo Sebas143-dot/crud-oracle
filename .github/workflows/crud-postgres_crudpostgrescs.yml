@@ -6,54 +6,61 @@ name: Build and deploy Node.js app to Azure Web App - CrudPostgresCS
 on:
   push:
     branches:
-      - crud-postgres
-  workflow_dispatch:
+      - crud-postgres # Asegúrate de que esta sea la rama que monitoreas para el despliegue
+  workflow_dispatch: # Permite ejecutar el workflow manualmente desde GitHub
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read # Permiso requerido para que actions/checkout lea tu repositorio
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4 # Paso para clonar tu repositorio
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v3 # Puedes considerar @v4 para la última versión estable
+        uses: actions/setup-node@v3 # Puedes considerar @v4 para la última versión estable (20.x)
         with:
-          node-version: '20.x'
+          node-version: '20.x' # Asegúrate de que esta versión coincida con la que usas
 
       # PASO 1: Instalar dependencias del Backend
+      # Se ejecuta en la carpeta 'Backend'
       - name: npm install (Backend)
         working-directory: ./Backend
         run: npm install
 
       # PASO 2: Instalar dependencias del Frontend
+      # Se ejecuta en la carpeta 'Frontend'
       - name: npm install (Frontend)
         working-directory: ./Frontend
         run: npm install
 
       # PASO 3: Construir el Frontend para producción
-      # Asegúrate de que en package.json de tu Frontend tengas un script 'build'
-      # que ejecute 'ng build --configuration=production'
+      # Se ejecuta en la carpeta 'Frontend'. El script 'build' de tu package.json ejecutará 'ng build'
+      # Asegúrate de que 'npm run build -- --configuration=production' sea el comando correcto para tu frontend
+      # Si tienes un script 'build' en el package.json de tu Frontend que ya maneja la configuración de producción,
+      # 'npm run build' podría ser suficiente, o 'ng build --configuration=production'.
       - name: npm build (Frontend Production)
         working-directory: ./Frontend
-        run: npm run build -- --configuration=production # Usa 'ng build --configuration=production' si no tienes un script npm
+        run: npm run build -- --configuration=production
 
       # PASO 4: MOVER los archivos construidos del Frontend al directorio del Backend
-      # Esto es CRUCIAL porque tu index.js en Backend espera el Frontend en esa ruta relativa
-      # 'path.join(__dirname, '../Frontend/dist/crud/browser')' significa que el
-      # directorio 'Frontend/dist/crud/browser' debe existir DENTRO de la carpeta 'Backend'
-      - name: Move Frontend build to Backend serving directory
+      # Este es CRUCIAL para que el Backend pueda servir el Frontend.
+      # Tu 'index.js' en el Backend espera el Frontend en 'path.join(__dirname, '../Frontend/dist/crud/browser')'.
+      # Esto significa que el directorio 'Frontend/dist/crud/browser' debe existir DENTRO de la carpeta 'Backend'.
+      - name: Copy Frontend build to Backend serving directory
         run: |
           # Asegura que el directorio de destino exista dentro de Backend
+          # La opción '-p' de mkdir crea los directorios padres si no existen
           mkdir -p ./Backend/Frontend/dist/crud/browser
           # Mueve (o copia) el contenido del build del Frontend al lugar correcto dentro de Backend
+          # 'cp -r' copia recursivamente el contenido de un directorio a otro
           cp -r ./Frontend/dist/crud/browser/* ./Backend/Frontend/dist/crud/browser/
         working-directory: . # Este comando se ejecuta desde la raíz del repositorio
 
       # PASO 5: Zipear SOLO la carpeta Backend para el despliegue
-      # Ahora, la carpeta Backend ya contiene el Frontend compilado en su estructura esperada
+      # Ahora, la carpeta 'Backend' ya contiene el 'Frontend' compilado en su estructura esperada.
+      # 'zip -r deploy_package.zip .' zipea todo el contenido del 'working-directory' en 'deploy_package.zip'.
       - name: Zip artifact for deployment
         run: zip -r deploy_package.zip .
         working-directory: ./Backend # Zipea el contenido de la carpeta Backend
@@ -61,30 +68,30 @@ jobs:
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
-          path: ./Backend/deploy_package.zip # La ruta al zip que acabas de crear
+          name: node-app # Nombre del artefacto que se descargará en el job 'deploy'
+          path: ./Backend/deploy_package.zip # La ruta al archivo zip que acabas de crear
 
   deploy:
     runs-on: ubuntu-latest
-    needs: build
+    needs: build # Este job depende del éxito del job 'build'
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write # Requerido para la autenticación en Azure
+      contents: read # Requerido para descargar el artefacto
 
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: node-app # Descarga el artefacto 'node-app'
 
-      - name: Unzip artifact for deployment
-        # Descomprime el paquete en la raíz de donde se desplegará.
-        # El zip ya solo contiene la carpeta 'Backend'
-        run: unzip deploy_package.zip
-      
+      # NOTA: EL PASO 'Unzip artifact for deployment' YA NO ES NECESARIO AQUÍ
+      # porque la acción 'azure/webapps-deploy' puede desplegar un archivo zip directamente.
+      # Hemos eliminado la línea 'run: unzip deploy_package.zip'
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
+          # Asegúrate de que estos secrets estén configurados en tu repositorio de GitHub
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_A88A4BA0A0C14EEBBF404EE43438FD82 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_4344D933F127422A8DB5D9F23F1B553F }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_02E16C7FDC694005B8C3AD595DF28135 }}
@@ -93,8 +100,6 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'CrudPostgresCS'
-          slot-name: 'Production'
-          # El paquete que se va a desplegar es ahora la carpeta 'Backend' que se descomprimió.
-          # Asegúrate de que el contenido del zip sea la raíz de tu app en App Service.
-          package: ./Backend # Esto desplegará el contenido de la carpeta Backend
+          app-name: 'CrudPostgresCS' # Nombre de tu App Service en Azure
+          slot-name: 'Production' # O el nombre de tu slot de despliegue si usas uno
+          package: deploy_package.zip # Apunta directamente al archivo zip que se descargó.
