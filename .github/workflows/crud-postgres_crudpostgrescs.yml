@@ -24,12 +24,20 @@ jobs:
           node-version: '20.x'
 
       - name: npm install, build, and test
+        working-directory: ./Backend # <--- LÍNEA AÑADIDA/MODIFICADA
         run: |
           npm install
           npm run build --if-present
           npm run test --if-present
 
       - name: Zip artifact for deployment
+        # Si tu aplicación principal está dentro de 'Backend',
+        # es probable que quieras zippear el contenido de 'Backend'
+        # para que sea el root de tu App Service.
+        # Considera cambiar la línea de 'run' a:
+        # run: zip release.zip ./Backend -r
+        # Esto asegurará que el contenido de 'Backend' sea el que se despliegue.
+        # Por ahora, mantendremos el original, pero ten esto en cuenta si la app no inicia.
         run: zip release.zip ./* -r
 
       - name: Upload artifact for deployment job
@@ -68,4 +76,3 @@ jobs:
           app-name: 'CrudPostgresCS'
           slot-name: 'Production'
           package: .
-          
