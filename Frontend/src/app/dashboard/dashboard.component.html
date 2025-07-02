@@ -28,6 +28,7 @@
             </div>
 
             <div class="actions">
+              <!-- Habilitar el botón solo si el usuario tiene el privilegio SELECT -->
               <button 
                 class="edit-btn" 
                 (click)="editarTabla(t)" 
@@ -45,7 +46,102 @@
   <!-- ============ PANEL DERECHO - COMANDOS SQL ============ -->
   <div class="right-panel" *ngIf="showSqlPanel">
     <div class="sql-panel">
-      <!-- Aquí iría el contenido del panel SQL existente -->
+      <div class="panel-header">
+        <h3>Ejecutor de Comandos SQL</h3>
+        <button class="close-panel-btn" (click)="cerrarPanelSQL()" title="Cerrar panel">
+          ✕
+        </button>
+      </div>
+
+      <!-- ============ SECCIÓN DE COMANDOS PREDEFINIDOS ============ -->
+      <div class="predefined-commands-section">
+        <h4>Comandos Predefinidos</h4>
+
+        <div class="command-selector">
+          <select [(ngModel)]="selectedPredefinedCommand" class="command-dropdown" [disabled]="isExecutingCommand">
+            <option value="">-- Seleccionar comando --</option>
+            <option *ngFor="let cmd of predefinedCommands" [value]="cmd.id">
+              {{cmd.name}}
+            </option>
+          </select>
+        </div>
+
+        <!-- Descripción del comando seleccionado -->
+        <div class="command-description" *ngIf="selectedPredefinedCommand">
+          <p>
+            <strong>Descripción:</strong>
+            {{ selectedPredefinedDescription }}
+          </p>
+        </div>
+
+        <!-- Botones de acción para comandos predefinidos -->
+        <div class="predefined-actions" *ngIf="selectedPredefinedCommand">
+          <button class="load-command-btn" (click)="loadPredefinedCommand()" [disabled]="isExecutingCommand"
+            title="Cargar comando en el editor para modificarlo">
+            Cargar en Editor
+          </button>
+
+          <button class="execute-predefined-btn" (click)="executePredefinedCommand()" [disabled]="isExecutingCommand"
+            title="Ejecutar comando directamente">
+            <span *ngIf="!isExecutingCommand">Ejecutar Directo</span>
+            <span *ngIf="isExecutingCommand">Ejecutando...</span>
+          </button>
+
+          <button class="clear-selection-btn" (click)="clearSelection()" [disabled]="isExecutingCommand"
+            title="Limpiar selección">
+            Limpiar
+          </button>
+        </div>
+      </div>
+
+      <!-- ============ VALIDACIÓN DE CÉDULA ECUATORIANA ============ -->
+<div class="cedula-section">
+  <h4>Validación de Cédula</h4>
+
+  <input 
+    type="text" 
+    placeholder="Ingrese cédula (10 dígitos)" 
+    [(ngModel)]="inputCedula" 
+    [disabled]="isExecutingCommand"
+    maxlength="10"
+    class="cedula-input"
+  />
+
+  <button 
+    class="validate-btn" 
+    (click)="validarCedula()" 
+    [disabled]="isExecutingCommand">
+    Validar Cédula
+  </button>
+
+  <div class="cedula-output" *ngIf="resultadoCedula">
+    <pre>{{ resultadoCedula }}</pre>
+  </div>
+</div>
+
+
+      <!-- ============ DIVISOR ============ -->
+      <div class="section-divider"></div>
+
+      <!-- ============ EDITOR SQL PERSONALIZADO ============ -->
+      <div class="sql-editor">
+        <textarea id="sqlCommand" [(ngModel)]="currentSqlCommand" (input)="onSqlCommandChange()"
+          placeholder="Escribe tu comando SQL aquí o selecciona un comando predefinido arriba..." rows="10"
+          [disabled]="isExecutingCommand">
+  </textarea>
+
+        <!-- Resultado de la consulta -->
+        <div class="sql-result" *ngIf="sqlResult">
+          <h4>Resultado:</h4>
+          <pre class="result-output">{{ sqlResult }}</pre>
+        </div>
+
+        <button class="execute-btn" (click)="ejecutarComandoSQL()"
+          [disabled]="!currentSqlCommand.trim() || isExecutingCommand || selectedPredefinedCommand">
+          <span *ngIf="!isExecutingCommand">Ejecutar Comando Manual</span>
+          <span *ngIf="isExecutingCommand">⏳ Ejecutando...</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -89,41 +185,40 @@
       </div>
     </div>
 
-    <!-- Selección de columnas y separador -->
-    <div *ngIf="columnas.length > 0" class="column-selector">
-      <h4>Seleccionar columnas</h4>
-      <div class="checkbox-group">
-        <label *ngFor="let c of columnas">
-          <input type="checkbox" [value]="c" (change)="toggleColumnaSeleccionada(c, $event)" [checked]="columnasSeleccionadas.includes(c)" />
-          {{ c }}
-        </label>
-      </div>
-
-      <label for="separador">Separador:</label>
-      <select id="separador" [(ngModel)]="separadorSeleccionado">
-        <option value=",">, (coma)</option>
-        <option value=";">; (punto y coma)</option>
-        <option value="\\">\\ (barra invertida)</option>
-        <option value="\t">Tab</option>
-      </select>
-
-      <button class="modal-btn" (click)="generarDatosSeparados()">Mostrar Datos</button>
-    </div>
-
-    <!-- Vista previa y descarga -->
-    <div *ngIf="textoGenerado" class="datos-generados">
-      <h4>Datos generados</h4>
-      <textarea rows="10" readonly>{{ textoGenerado }}</textarea>
-      <button class="modal-btn" (click)="descargarTxt()">Descargar como .txt</button>
-    </div>
-
-    <div class="archivo-cargado">
-      <h4>Cargar archivo .txt</h4>
-      <label class="upload-label">
-        <input type="file" accept=".txt" (change)="cargarArchivoTxt($event)" hidden />
-        <span class="upload-btn">Seleccionar archivo</span>
-      </label>
+    <!-- ============ NUEVAS FUNCIONALIDADES ============ -->
+<div *ngIf="columnas?.length" class="column-selector">
+  <h4>Selecciona columnas:</h4>
+  <div *ngFor="let col of columnas">
+    <label>
+      <input type="checkbox" [checked]="columnasSeleccionadas.includes(col)" (change)="toggleColumnaSeleccionada(col, $event)" />
+      {{ col }}
+    </label>
   </div>
+
+  <h4>Separador:</h4>
+  <select [(ngModel)]="separadorSeleccionado" class="command-dropdown">
+    <option value=",">Coma (,)</option>
+    <option value=";">Punto y coma (;)</option>
+    <option value="\\">Barra invertida (\\)</option>
+    <option value="\\t">Tabulación</option>
+  </select>
+
+  <button class="execute-btn" (click)="generarDatosSeparados()">Generar Datos</button>
+  <button class="execute-btn" (click)="descargarTxt()" style="margin-top: 10px;">Descargar TXT</button>
+</div>
+
+<div class="sql-result" *ngIf="textoGenerado">
+  <h4>Contenido generado:</h4>
+  <pre class="result-output">{{ textoGenerado }}</pre>
+</div>
+
+<div class="cedula-section">
+  <h4>Cargar archivo TXT</h4>
+  <input type="file" accept=".txt" (change)="cargarArchivoTxt($event)" class="cedula-input" />
+</div>
+
+
     <button class="close-btn" (click)="cerrarModal()">Cerrar</button>
   </div>
 </div>
+
